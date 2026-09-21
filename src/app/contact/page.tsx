@@ -12,10 +12,10 @@ export default function Contact() {
   ].filter((l): l is { label: string; href: string; text: string } => Boolean(l));
 
   return (
-    <div className="mx-auto max-w-2xl px-6 pb-16 pt-32">
+    <div className="mx-auto max-w-5xl px-6 pb-16 pt-32">
       <h1 className="text-4xl font-semibold tracking-tight">Contact</h1>
       <p className="mt-3 text-muted">Want to talk about a project, an idea or a post? Get in touch.</p>
-      <ul className="mt-10 space-y-3">
+      <ul className="mt-10 max-w-2xl space-y-3">
         {links.map((link, i) => (
           <Reveal key={link.label} delay={i * 0.06}>
             <li>

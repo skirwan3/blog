@@ -20,39 +20,41 @@ const paragraphs = [
 
 export default function About() {
   return (
-    <div className="mx-auto max-w-2xl px-6 pb-16 pt-32">
+    <div className="mx-auto max-w-5xl px-6 pb-16 pt-32">
       <h1 className="text-4xl font-semibold tracking-tight">About Me</h1>
 
-      <Reveal>
-        <p className="mt-8 text-xl leading-relaxed text-foreground sm:text-2xl sm:leading-relaxed">
-          {intro}
-        </p>
-      </Reveal>
+      <div className="max-w-2xl">
+        <Reveal>
+          <p className="mt-8 text-xl leading-relaxed text-foreground sm:text-2xl sm:leading-relaxed">
+            {intro}
+          </p>
+        </Reveal>
 
-      <div className="mt-10 space-y-6 text-lg leading-8 text-muted">
-        {paragraphs.map((text, i) => (
-          <Reveal key={i} delay={0.05}>
-            <p>{text}</p>
-          </Reveal>
-        ))}
-      </div>
-
-      <Reveal>
-        <div className="mt-12 flex flex-wrap gap-3">
-          <Link
-            href="/projects"
-            className="rounded-lg bg-foreground px-5 py-2.5 text-sm font-medium text-background transition-transform hover:scale-[1.03] active:scale-95"
-          >
-            See my projects
-          </Link>
-          <Link
-            href="/contact"
-            className="rounded-lg border border-border px-5 py-2.5 text-sm font-medium transition-colors hover:border-muted"
-          >
-            Get in touch
-          </Link>
+        <div className="mt-10 space-y-6 text-lg leading-8 text-muted">
+          {paragraphs.map((text, i) => (
+            <Reveal key={i} delay={0.05}>
+              <p>{text}</p>
+            </Reveal>
+          ))}
         </div>
-      </Reveal>
+
+        <Reveal>
+          <div className="mt-12 flex flex-wrap gap-3">
+            <Link
+              href="/projects"
+              className="rounded-lg bg-foreground px-5 py-2.5 text-sm font-medium text-background transition-transform hover:scale-[1.03] active:scale-95"
+            >
+              See my projects
+            </Link>
+            <Link
+              href="/contact"
+              className="rounded-lg border border-border px-5 py-2.5 text-sm font-medium transition-colors hover:border-muted"
+            >
+              Get in touch
+            </Link>
+          </div>
+        </Reveal>
+      </div>
     </div>
   );
 }
