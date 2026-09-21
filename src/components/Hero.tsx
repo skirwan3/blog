@@ -55,16 +55,16 @@ export function Hero() {
           transition={{ delay: 1.1, duration: 0.6 }}
         >
           <Link
-            href="/blog"
+            href="/projects"
             className="rounded-lg bg-foreground px-5 py-2.5 text-sm font-medium text-background transition-transform hover:scale-[1.03] active:scale-95"
           >
-            Read the blog
+            See projects
           </Link>
           <Link
-            href="/about"
+            href="/blog"
             className="rounded-lg border border-border px-5 py-2.5 text-sm font-medium transition-colors hover:border-muted"
           >
-            About me
+            Read the blog
           </Link>
         </motion.div>
       </div>

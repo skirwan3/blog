@@ -31,16 +31,21 @@ src/
   app/
     layout.tsx            Page shell: fonts, nav, footer, motion settings
     page.tsx              Home page (hero + latest posts)
-    about/page.tsx        About page (placeholder, still to write)
+    projects/page.tsx     Projects page (cards from src/content/projects.ts)
+    about/page.tsx        About Me page (placeholder, still to write)
+    contact/page.tsx      Contact page (links from src/lib/site.ts)
     blog/page.tsx         Blog index
     blog/[slug]/page.tsx  One page per post (generated from the MDX files)
     globals.css           Theme colours, base styles, post typography
   components/
-    Hero, Nav, Footer, PostCard, Reveal, Providers
+    Hero, Footer, PostCard, ProjectCard, Reveal, Providers
+    Nav.tsx               Floating, translucent, centered pill nav (Projects, Blog, About Me, Contact)
     mdx/                  Components you can use inside posts (Callout, Tokenizer)
   content/posts/          Blog posts, one .mdx file each
+  content/projects.ts     List of projects shown on /projects
   lib/
     posts.ts              Reads posts from disk (server only)
+    site.ts               Name, GitHub, email, LinkedIn shown on the Contact page
     post-types.ts         Post types and date formatting (safe for client code)
   mdx-components.tsx      Registers components available inside MDX posts
 next.config.mjs           Enables MDX
