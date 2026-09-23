@@ -1,0 +1,105 @@
+export const metadata = {
+  title: "Opioid Reduction Analytics Tool",
+  description:
+    "A SAS Visual Analytics dashboard that tracks opioid administration at an inpatient rehabilitation facility and helped nearly double the reduction in morphine equivalents from admission to discharge.",
+  date: "2021-07-01",
+  tags: ["healthcare", "sas", "analytics"],
+  role: "Healthcare Data Analyst, Brooks Rehabilitation Center for Data Solutions",
+  cover: "/projects/opioid-reduction-analytics/banner.jpg",
+};
+
+## Background
+
+According to [data from the CDC](https://www.cdc.gov/opioids/data/index.html), more than
+564,000 people died from overdoses involving any opioid — prescription or illicit —
+between 1999 and 2020. Overdose deaths involving opioids have increased more than
+eightfold since 1999. Opioids killed nearly 69,000 people in 2020 alone, and over 82% of
+those deaths involved synthetic opioids.
+
+<img src="/projects/opioid-reduction-analytics/cdc_opioid.png" alt="CDC opioid overdose death trends" />
+
+## Purpose
+
+The opioid epidemic highlighted the need to reduce opioid administration in pain
+management, but there was no established way to track a facility's performance toward
+that goal. As a Healthcare Data Analyst at Brooks Rehabilitation Center for Data
+Solutions, I led development of a visual analytics tool — built in SAS Enterprise Guide
+and SAS Visual Analytics — that accurately tracks and alerts on opioid medication
+administration at our inpatient rehabilitation facility. The tool was rolled out alongside
+clinical processes aimed at reducing opioid administration, and it now validates
+hospital-wide progress on that initiative.
+
+## Methods
+
+Medication data for 3M+ administrations were extracted from our EMR for inpatient
+rehabilitation patients from January 2019 through March 2021. Several transformations
+were required before analysis.
+
+Many administered medications were **compound medications** — a mix of active drugs.
+Since the project's focus was opioid administration specifically, the opioid component
+dosage was extracted from each. For example, a Percocet 10/325 mg tablet contains 10 mg
+of oxycodone (an opioid) and 325 mg of acetaminophen (not an opioid), so only the 10 mg
+of oxycodone was recorded as a new field.
+
+<img src="/projects/opioid-reduction-analytics/compound_meds.png" alt="Compound medication dosage extraction" />
+
+Some opioid medications are administered via a transdermal patch rather than a pill. For
+that route, wear duration directly affects the dose received, so dose was calculated as
+dosage rate × administration duration.
+
+<img src="/projects/opioid-reduction-analytics/patch.png" alt="Transdermal patch dosage calculation" />
+
+Because opioid medications vary widely in potency (1 mg of oxycodone is roughly 1.5×
+stronger than 1 mg of hydrocodone, for example), all dosages were converted to **morphine
+equivalents** — a standardized measure of opioid potency relative to morphine — using
+conversion factors based on CDC guidelines.
+
+<img src="/projects/opioid-reduction-analytics/ME_conversions.png" alt="Morphine equivalent conversion factors" />
+
+To measure opioid reduction, each patient's morphine equivalents were summed over 24-hour
+windows at admission, discharge, and weekly intervals (a "week 1" window, for instance,
+began 7 days after admission). Percent change relative to admission was then calculated
+for each timepoint. To focus on patients arriving on opioids from acute care, only
+patients with an opioid administration in the first 24 hours were included.
+
+## Results
+
+In July 2021, the interactive SAS Visual Analytics tool went live, displaying historical
+trends and changes in opioid administration for active patients.
+
+<img src="/projects/opioid-reduction-analytics/ME_Trend.png" alt="Average morphine equivalents at admission and discharge" />
+<p className="caption">Average morphine equivalents (mg) at admission and discharge</p>
+
+<img src="/projects/opioid-reduction-analytics/ME_PC.png" alt="Percent change in morphine equivalents from admission to discharge" />
+<p className="caption">Percent change in morphine equivalents from admission to discharge</p>
+
+The tool has since been adopted by our Multimodal Pain Group to evaluate progress on
+opioid reduction goals, and it's now part of regular team meetings where physicians,
+nursing and therapy staff discuss patient pain management and satisfaction.
+
+To evaluate the tool's contribution to opioid reduction, we compared percent reduction in
+morphine equivalents for the six months before and after implementation using a two-sample
+t-test.
+
+<Callout title="Result">
+  Average percent reduction in morphine equivalents from admission to discharge rose
+  from **25.3%** in the six months before implementation to **59.8%** in the six months
+  after (p &lt; .0001).
+</Callout>
+
+<img src="/projects/opioid-reduction-analytics/ME_Results.png" alt="Percent reduction before and after implementation" />
+
+The tool also gives clinicians a patient-level view of daily morphine equivalents and
+opioid administration, with more detail available when a specific day is selected.
+
+<img src="/projects/opioid-reduction-analytics/Pt_lvl.png" alt="Patient-level daily morphine equivalents dashboard" />
+<img src="/projects/opioid-reduction-analytics/Pt_lvl_meds.png" alt="Patient-level opioid administration detail" />
+
+## Discussion
+
+This tool gives clinical teams a comprehensive view of the hospital's progress toward
+reducing opioid administration. Its automated notifications provide physicians with
+actionable, patient-level data to support clinical decision-making. As new pain
+management interventions are developed, sound metrics are needed to evaluate their
+impact on patient care — so beyond its clinical utility, this tool may also support
+research applications as a measure of opioid administration and reduction.

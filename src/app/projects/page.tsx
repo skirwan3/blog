@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { ProjectCard } from "@/components/ProjectCard";
 import { Reveal } from "@/components/Reveal";
-import { projects } from "@/content/projects";
+import { getAllProjects } from "@/lib/projects";
 
 export const metadata: Metadata = { title: "Projects" };
 
-export default function Projects() {
+export default async function Projects() {
+  const projects = await getAllProjects();
+
   return (
     <div className="mx-auto max-w-5xl px-6 pb-16 pt-32">
       <h1 className="text-4xl font-semibold tracking-tight">Projects</h1>

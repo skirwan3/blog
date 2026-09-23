@@ -1,0 +1,119 @@
+export const metadata = {
+  title: "Context-Dependent Memory & Face Perception (EEG)",
+  description:
+    "Undergraduate neuroscience thesis analyzing EEG and behavioral data on how environmental context shapes memory and face perception.",
+  date: "2019-05-01",
+  tags: ["neuroscience", "eeg", "r", "spss"],
+  role: "Undergraduate Thesis, Brain, Cognition and Development Lab — University of Florida",
+  cover: "/projects/eeg-memory-thesis/banner.png",
+  links: [{ label: "Behavioral analysis (R)", href: "https://github.com/skirwan3/bcd_lab_thesis" }],
+};
+
+## About this study
+
+While working as a research assistant at the University of Florida, I completed a senior
+thesis in the Brain, Cognition and Development Lab. My role was to clean, process and
+analyze previously collected neuroimaging and behavioral data. The study itself was
+designed by a former lab member, who was also responsible for participant testing and
+data collection.
+
+Broadly, the study focused on understanding the brain processes involved in
+**context-dependent memory** and face perception. Context-dependent memory refers to
+improved memory performance when the environmental context at encoding matches the
+environmental context at retrieval.
+
+The specific aim was to examine the neural and behavioral correlates of context-dependent
+memory for own- and other-race faces during an old/new memory task that manipulated music
+tonality (major key / minor key), in order to determine whether encoding or retrieval of
+faces is influenced by group familiarity and by encoding/retrieval context.
+
+<img src="/projects/eeg-memory-thesis/face_recall.jpg" alt="Face recall task stimuli" />
+<p className="caption">Example stimuli from the old/new face recall task</p>
+
+The experiment consisted of several blocks, each with a study phase followed by a
+corresponding test phase. During the study phase, participants memorized 16 sequentially
+presented faces. In the test phase, those 16 faces were shown again, randomly mixed with
+16 new faces, and participants judged each as "old" or "new." Throughout, EEG data was
+collected via a 128-channel EEG cap measuring electrical activity at the scalp.
+
+## Data processing
+
+<img src="/projects/eeg-memory-thesis/EEG_Cap.jpeg" alt="128-channel EEG cap used for data collection" />
+
+The raw EEG data was processed in Net Station following a seven-step pipeline:
+
+1. Applying highpass and lowpass filters
+2. Segmentation
+3. Artifact detection
+4. Bad channel replacement
+5. Average specification
+6. Average reference
+7. Baseline correction
+
+Segmentation (step 2) is central to the analytical approach. Perception and memory are
+cognitive processes that unfold rapidly after a stimulus appears, so the analysis focuses
+on neural activity in the brief window immediately following each face. Segmentation
+creates 900-millisecond windows around each stimulus for close examination.
+
+<img src="/projects/eeg-memory-thesis/erpfig.jpeg" alt="Example event-related potential waveform" />
+
+This brain response — a direct result of a stimulus — is called an **event-related
+potential (ERP)**. The analysis focused on ERP *components*, typically characterized by
+spatial location and timing:
+
+**Perceptual components**
+- **P100** — general perception; positive peak around 100 ms, occipital regions
+- **N170** — face-processing perception; negative trough around 170 ms, occipital regions
+- **N250** — face familiarity; negative trough around 250 ms, occipital regions
+
+**Memory components**
+- **P600** — recollection, a slower process providing explicit memory detail; positive peak around 600 ms, left/right posterior superior regions
+- **FN400** — familiarity, a fast process without explicit detail; negative trough around 400 ms, left/right anterior superior regions
+
+<img src="/projects/eeg-memory-thesis/regions.jpg" alt="Diagram of brain regions and electrodes associated with each ERP component" />
+<p className="caption">Electrode regions associated with each ERP component (top = anterior, bottom = posterior)</p>
+
+Behavioral data was collected alongside the EEG recordings via participants' old/new
+judgments. Performance measures — Hit Rate, Miss Rate, False Alarm Rate, Correct
+Rejection Rate, AUC ROC and D-prime — were calculated from these responses. That
+processing was done in R; [the script is on GitHub](https://github.com/skirwan3/bcd_lab_thesis).
+
+## Data analysis
+
+After preprocessing and segmentation into ERPs, the neuroimaging data was analyzed in
+SPSS. For each ERP component, a multivariate analysis of variance (MANOVA) tested the
+effect of music context, race of face presented, participant judgment and brain region on
+mean ERP amplitude. The findings most relevant to context-dependent memory:
+
+<img src="/projects/eeg-memory-thesis/N170.jpg" alt="N170 interaction plot" />
+<p className="caption">N170: changed-context trials showed a greater mean amplitude than same-context trials on false alarms (p = 0.040)</p>
+
+<img src="/projects/eeg-memory-thesis/N250.jpg" alt="N250 interaction plot" />
+<p className="caption">N250: the same changed- vs. same-context pattern held for false alarms (p = 0.011)</p>
+
+<img src="/projects/eeg-memory-thesis/P600.jpg" alt="P600 interaction plot" />
+<p className="caption">P600: misses yielded a greater amplitude than false alarms under changed-context conditions (p = 0.005)</p>
+
+A parallel MANOVA on the behavioral data tested music context and race of face against
+each performance measure. No significant relationship emerged between music context and
+performance. Race, however, had a significant main effect on correct rejection rate
+(p = 0.030): own-race faces (M = 0.618, SE = 0.014) were correctly rejected more often
+than other-race faces (M = 0.584, SE = 0.013).
+
+<img src="/projects/eeg-memory-thesis/Race_CR.jpg" alt="Correct rejection rate by race of face" />
+
+<Callout title="Key finding">
+  Face memory and perception showed measurable sensitivity to environmental context:
+  faces encoded and retrieved under mismatched musical context produced distinct ERP
+  signatures for false alarms and misses, and own-race faces were more reliably
+  rejected as "new" than other-race faces.
+</Callout>
+
+## Interpretation
+
+This study investigated how context-dependent memory shapes cognitive processes related
+to memory and perception. Combining neuroimaging and behavioral data revealed significant
+interactions involving context, race and task judgment across multiple ERP components.
+These findings support the hypothesis that environmental context plays a role in
+perception and memory during face processing. Further research should examine how brain
+processes responsible for decision-making integrate contextual information.
