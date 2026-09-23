@@ -5,17 +5,17 @@ import { Reveal } from "@/components/Reveal";
 export const metadata: Metadata = {
   title: "About Me",
   description:
-    "Data scientist with a background in neuroscience and healthcare analytics, interested in applying machine learning and AI to real problems.",
+    "Data scientist with a background in neuroscience research and healthcare analytics, interested in applying machine learning and AI to real-world problems.",
 };
 
 const intro =
-  "I'm a data scientist with a background in neuroscience and healthcare analytics, and I'm most interested in how machine learning and AI can be applied to solve real problems.";
+  "I'm a data scientist with a background in neuroscience research and healthcare analytics. I'm most interested in applying machine learning and AI to real-world problems.";
 
 const paragraphs = [
-  "My path into data started in the lab. I studied psychology and neuroscience at the University of Florida, then spent two years as a research fellow at the National Institutes of Health, where I worked on studies of adolescent depression and the long-term effects of infectious disease. This research background shaped the principles I aim to bring to data problems: understanding context first, asking good questions, analyzing data carefully, and communicating clearly.",
-  "Since then, I've applied data science across healthcare and industry, building predictive models for patient risk, forecasting and pricing problems, and analytics that help organizations become more efficient and make better decisions. I earned my M.S. in Analytics from Georgia Tech, completing the Computational Data Analytics track, which focused on the mathematics and computation underlying machine learning and artificial intelligence.",
-  "While my day-to-day work focuses on advancing organizations' data capabilities, I use this site to explore the topics in ML and AI I'm most curious about. Here I write about what I'm learning and think through where modern methods can help with problems in health and science.",
-  "Outside of this work, I enjoy mentoring Georgia Tech graduate students, and I'm always happy to talk with others working in data science, healthcare, or applied AI.",
+  "My path into data started in the lab. After studying psychology and neuroscience at the University of Florida, I spent two years as a research fellow at the National Institutes of Health, working on studies of adolescent depression and the long-term effects of infectious disease.",
+  "Since then, I've worked across healthcare and industry, building predictive models for patient risk, tackling forecasting and pricing problems, and developing analytics that help organizations run more efficiently and make better decisions. I also earned an M.S. in Analytics from Georgia Tech through the Computational Data Analytics track, which focused on the mathematics and computation underlying machine learning and AI.",
+  "This site is where I explore the ML and AI topics I'm most curious about, writing about what I'm learning and building.",
+  "I'm always happy to connect with others working in data science, healthcare, or applied AI, so feel free to reach out!",
 ];
 
 export default function About() {
