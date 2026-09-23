@@ -1,0 +1,122 @@
+export const metadata = {
+  title: "Readmission Risk Model",
+  description:
+    "A logistic-regression risk scoring tool that helps clinicians identify inpatient rehabilitation patients at highest risk of readmission to acute care.",
+  date: "2022-03-01",
+  tags: ["healthcare", "sas", "logistic-regression"],
+  role: "Healthcare Data Analyst, Brooks Rehabilitation Center for Data Solutions",
+  cover: "/projects/readmission-risk-model/banner.jpeg",
+};
+
+## Background & purpose
+
+As a Healthcare Data Analyst at Brooks Rehabilitation Center for Data Solutions, I led
+development of a readmission risk tool — built in SAS Enterprise Guide and SAS Visual
+Analytics — to help identify patients at highest risk of readmitting to acute care from
+our inpatient rehabilitation facility.
+
+Established readmission risk tools exist for acute care hospitals, but they don't
+translate well to inpatient rehabilitation. Clinical teams at Brooks Rehabilitation found
+that traditional models tended to flag the majority of patients as "high-risk," failing
+to provide actionable insight into patients' varying risk levels. This project addresses
+that gap: the tool calculates a risk score and assigns a corresponding risk group for
+each patient, which clinical teams use to guide multidisciplinary care for the
+highest-risk patients.
+
+## Methods
+
+We used **logistic regression** to model acute care readmissions, chosen for the binary
+response variable (readmitted: yes or no).
+
+The first step was compiling candidate data elements. The data solutions team worked
+closely with clinicians to identify factors likely to predict readmission — demographics,
+diagnoses, medical conditions, medication administrations, functional assessment scores
+("Caretool" scores), vitals and labs.
+
+<img src="/projects/readmission-risk-model/data_elements.png" alt="Candidate data elements considered for the model" />
+
+Preliminary analysis examined each element's relationship with readmission. Variables
+with low correlation or low sample size were excluded, and highly correlated variables
+were removed to address multicollinearity. Data was filtered to January 2018–March 2022
+due to limited lab data before 2018.
+
+A backwards-selection logistic regression then identified the final set of variables. The
+resulting model coefficients were used to build the risk scoring system: each risk
+factor's score was calculated by multiplying its variable estimate by 10 and rounding to
+the nearest whole number, based on prior published approaches to readmission risk
+scores.<sup>1,2</sup>
+
+<img src="/projects/readmission-risk-model/score_calc.png" alt="Risk score calculation methodology" />
+
+Individual risk factor scores were summed into an overall risk score per patient, and
+patients were assigned to a risk group by score percentile: **Low** (0–75th percentile),
+**Medium** (75th–90th) and **High** (90th–100th).
+
+<img src="/projects/readmission-risk-model/risk_scores.png" alt="Risk scores by factor and risk group thresholds" />
+
+<img src="/projects/readmission-risk-model/pt_examples.png" alt="Example patient risk score calculations" />
+<p className="caption">Two example patients illustrating risk score calculation and group assignment</p>
+
+## Results
+
+**Predictive factors.** The factors most predictive of readmission (largest regression
+estimates) were:
+
+1. Renal failure comorbidity
+2. Low score on self-care function (Caretool assessment)
+3. Gastrointestinal bleeding comorbidity
+4. Pulmonary disorder primary diagnosis
+
+**Area under the ROC curve.** To evaluate the model, we examined the AUC for the final
+logistic regression.
+
+<img src="/projects/readmission-risk-model/ROC.png" alt="ROC curve for the readmission model" />
+
+<Callout title="Result">
+  The model achieved an AUC of **0.6956**. While that may look modest in other contexts,
+  it falls well within the range reported for established tools such as the LACE Index
+  (0.598–0.805).<sup>3-7</sup>
+</Callout>
+
+**Readmission rates.** Readmission rates were calculated for past patients by risk group,
+both overall and broken down by year.
+
+<img src="/projects/readmission-risk-model/performance.png" alt="Readmission rates by risk group and year" />
+
+**Visual analytics dashboard.** The tool was implemented in a SAS Visual Analytics
+dashboard showing the overall distribution of patient risk groups alongside patient-level
+detail on the factors contributing most to each score.
+
+<img src="/projects/readmission-risk-model/VA_dashboard.png" alt="SAS Visual Analytics readmission risk dashboard" />
+
+## Discussion
+
+This tool is used by clinical teams to support care decisions and reduce readmissions.
+Beyond its predictive, clinical utility, it also serves a descriptive role — surfacing
+features in patients' clinical profiles associated with hospital readmission. Overall, it
+helps drive clinical processes that account for each patient's individual readmission
+risk profile and care needs.
+
+## References
+
+1. Chen SY, Stem M, Cerullo M, et al. Predicting the Risk of Readmission From Dehydration
+   After Ileostomy Formation: The Dehydration Readmission After Ileostomy Prediction
+   Score. *Dis Colon Rectum.* 2018;61(12):1410-1417. doi:10.1097/DCR.0000000000001217
+2. Boteon APCS, Boteon YL, Hodson J, et al. Multivariable analysis of predictors of
+   unplanned hospital readmission after pancreaticoduodenectomy: development of a
+   validated risk score. *HPB (Oxford).* 2019;21(1):26-33. doi:10.1016/j.hpb.2018.06.1802
+3. Su MC, Chen YC, Huang MS, et al. LACE Score-Based Risk Management Tool for Long-Term
+   Home Care Patients: A Proof-of-Concept Study in Taiwan. *Int J Environ Res Public
+   Health.* 2021;18(3):1135. doi:10.3390/ijerph18031135
+4. Miller WD, Nguyen K, Vangala S, Dowling E. Clinicians can independently predict 30-day
+   hospital readmissions as well as the LACE index. *BMC Health Serv Res.* 2018;18(1):32.
+   doi:10.1186/s12913-018-2833-3
+5. Hwang AB, Schuepfer G, Pietrini M, Boes S. External validation of EPIC's Risk of
+   Unplanned Readmission model, the LACE+ index and SQLape as predictors of unplanned
+   hospital readmissions. *PLoS One.* 2021;16(11):e0258338. doi:10.1371/journal.pone.0258338
+6. Damery S, Combes G. Evaluating the predictive strength of the LACE index in
+   identifying patients at high risk of hospital readmission following an inpatient
+   episode. *BMJ Open.* 2017;7(7):e016921. doi:10.1136/bmjopen-2017-016921
+7. Fry CH, Heppleston E, Fluck D, Han TS. Derivation of age-adjusted LACE index
+   thresholds in the prediction of mortality and frequent hospital readmissions in
+   adults. *Intern Emerg Med.* 2020;15(7):1319-1325. doi:10.1007/s11739-020-02448-3

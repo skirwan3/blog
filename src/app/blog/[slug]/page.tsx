@@ -22,7 +22,7 @@ export default async function PostPage({ params }: PageProps<"/blog/[slug]">) {
   const { Content, meta } = await getPost(slug);
 
   return (
-    <article className="mx-auto max-w-2xl px-6 py-16">
+    <article className="mx-auto max-w-2xl px-6 pb-16 pt-32">
       <Link href="/blog" className="text-sm text-muted transition-colors hover:text-foreground">
         ← All posts
       </Link>

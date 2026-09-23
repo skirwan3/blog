@@ -31,17 +31,25 @@ src/
   app/
     layout.tsx            Page shell: fonts, nav, footer, motion settings
     page.tsx              Home page (hero + latest posts)
-    about/page.tsx        About page (placeholder, still to write)
+    projects/page.tsx     Projects index (cards from src/content/projects/*.mdx)
+    projects/[slug]/page.tsx  One page per project (banner image + MDX body)
+    about/page.tsx        About Me page
+    contact/page.tsx      Contact page (links from src/lib/site.ts)
     blog/page.tsx         Blog index
     blog/[slug]/page.tsx  One page per post (generated from the MDX files)
-    globals.css           Theme colours, base styles, post typography
+    globals.css           Theme colours, base styles, post/project typography
   components/
-    Hero, Nav, Footer, PostCard, Reveal, Providers
-    mdx/                  Components you can use inside posts (Callout, Tokenizer)
+    Hero, Footer, PostCard, ProjectCard, Reveal, Providers
+    Nav.tsx               Floating, translucent, centered pill nav (Projects, Blog, About Me, Contact)
+    mdx/                  Components you can use inside posts and projects (Callout, Tokenizer)
   content/posts/          Blog posts, one .mdx file each
+  content/projects/       Projects, one .mdx file each (images alongside in public/projects/<slug>/)
   lib/
     posts.ts              Reads posts from disk (server only)
+    projects.ts           Reads projects from disk (server only)
+    site.ts               Name, GitHub, email, LinkedIn shown on the Contact page
     post-types.ts         Post types and date formatting (safe for client code)
+    project-types.ts      Project types (safe for client code)
   mdx-components.tsx      Registers components available inside MDX posts
 next.config.mjs           Enables MDX
 ```
@@ -62,6 +70,29 @@ next.config.mjs           Enables MDX
 
 3. Write Markdown below it. Use components like `<Callout title="Note">…</Callout>` or `<Tokenizer />` anywhere.
 4. To create a new interactive component: add it in `src/components/mdx/`, then register it in `src/mdx-components.tsx`. Components that use state, effects or animation need `"use client"` at the top.
+
+## Adding a project
+
+Projects work the same way as posts, with one addition: each project has its own image folder.
+
+1. Add images to `public/projects/my-project/` (a `banner.ext` for the cover/hero image, plus any inline images).
+2. Add `src/content/projects/my-project.mdx`. The file name becomes the URL: `/projects/my-project`.
+3. Start it with a metadata block:
+
+   ```mdx
+   export const metadata = {
+     title: "My project",
+     description: "One or two sentences shown on the project card and at the top of the page.",
+     date: "2026-10-01",
+     tags: ["python", "forecasting"],
+     role: "Optional: your role / where you did this",
+     cover: "/projects/my-project/banner.png",
+     links: [{ label: "GitHub", href: "https://github.com/..." }], // optional
+   };
+   ```
+
+4. Write the body in Markdown, referencing images with plain `<img src="/projects/my-project/chart.png" alt="..." />` tags (not `next/image` — the source images vary in size, so this is kept simple for now). Add an italic caption under an image with `<p className="caption">Caption text</p>`.
+5. Use `<Callout title="Result">…</Callout>` to call out a key number or finding.
 
 ## Running locally
 
