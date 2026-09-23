@@ -23,7 +23,7 @@ export default function About() {
     <div className="mx-auto max-w-5xl px-6 pb-16 pt-32">
       <h1 className="text-4xl font-semibold tracking-tight">About Me</h1>
 
-      <div className="mx-auto max-w-2xl">
+      <div className="max-w-2xl">
         <Reveal>
           <p className="mt-8 text-xl leading-relaxed text-foreground sm:text-2xl sm:leading-relaxed">
             {intro}

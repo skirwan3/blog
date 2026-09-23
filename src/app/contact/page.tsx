@@ -14,7 +14,7 @@ export default function Contact() {
   return (
     <div className="mx-auto max-w-5xl px-6 pb-16 pt-32">
       <h1 className="text-4xl font-semibold tracking-tight">Contact</h1>
-      <div className="mx-auto max-w-2xl">
+      <div className="max-w-2xl">
         <p className="mt-3 text-muted">Want to talk about a project, an idea or a post? Get in touch.</p>
         <ul className="mt-10 space-y-3">
           {links.map((link, i) => (
