@@ -2,6 +2,6 @@
 export const site = {
   name: "Stuart Kirwan",
   github: "https://github.com/skirwan3",
-  email: "",
-  linkedin: "",
+  email: "skirwan27@gmail.com",
+  linkedin: "https://www.linkedin.com/in/stuart-kirwan-050340203/",
 };
