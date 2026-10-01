@@ -14,9 +14,12 @@ According to [data from the CDC](https://www.cdc.gov/opioids/data/index.html), m
 564,000 people died from overdoses involving any opioid — prescription or illicit —
 between 1999 and 2020. Overdose deaths involving opioids have increased more than
 eightfold since 1999. Opioids killed nearly 69,000 people in 2020 alone, and over 82% of
-those deaths involved synthetic opioids.
+those deaths involved synthetic opioids. The CDC's
+[NCHS Data Brief No. 428](https://www.cdc.gov/nchs/products/databriefs/db428.htm) shows
+the rate of overdose deaths involving synthetic opioids other than methadone (such as
+fentanyl) rising 56% in a single year, from 11.4 per 100,000 in 2019 to 17.8 in 2020.
 
-<img src="/projects/opioid-reduction-analytics/cdc_opioid.png" alt="CDC opioid overdose death trends" />
+<OpioidDeathsChart />
 
 ## Purpose
 
@@ -41,20 +44,20 @@ dosage was extracted from each. For example, a Percocet 10/325 mg tablet contain
 of oxycodone (an opioid) and 325 mg of acetaminophen (not an opioid), so only the 10 mg
 of oxycodone was recorded as a new field.
 
-<img src="/projects/opioid-reduction-analytics/compound_meds.png" alt="Compound medication dosage extraction" />
+<CompoundMeds />
 
 Some opioid medications are administered via a transdermal patch rather than a pill. For
 that route, wear duration directly affects the dose received, so dose was calculated as
 dosage rate × administration duration.
 
-<img src="/projects/opioid-reduction-analytics/patch.png" alt="Transdermal patch dosage calculation" />
+<PatchDose />
 
 Because opioid medications vary widely in potency (1 mg of oxycodone is roughly 1.5×
 stronger than 1 mg of hydrocodone, for example), all dosages were converted to **morphine
 equivalents** — a standardized measure of opioid potency relative to morphine — using
 conversion factors based on CDC guidelines.
 
-<img src="/projects/opioid-reduction-analytics/ME_conversions.png" alt="Morphine equivalent conversion factors" />
+<MorphineEquivalents />
 
 To measure opioid reduction, each patient's morphine equivalents were summed over 24-hour
 windows at admission, discharge, and weekly intervals (a "week 1" window, for instance,
@@ -67,11 +70,9 @@ patients with an opioid administration in the first 24 hours were included.
 In July 2021, the interactive SAS Visual Analytics tool went live, displaying historical
 trends and changes in opioid administration for active patients.
 
-<img src="/projects/opioid-reduction-analytics/ME_Trend.png" alt="Average morphine equivalents at admission and discharge" />
-<p className="caption">Average morphine equivalents (mg) at admission and discharge</p>
+<MeAdmissionDischargeChart />
 
-<img src="/projects/opioid-reduction-analytics/ME_PC.png" alt="Percent change in morphine equivalents from admission to discharge" />
-<p className="caption">Percent change in morphine equivalents from admission to discharge</p>
+<MePercentChangeChart />
 
 The tool has since been adopted by our Multimodal Pain Group to evaluate progress on
 opioid reduction goals, and it's now part of regular team meetings where physicians,
@@ -87,13 +88,12 @@ t-test.
   after (p &lt; .0001).
 </Callout>
 
-<img src="/projects/opioid-reduction-analytics/ME_Results.png" alt="Percent reduction before and after implementation" />
+<MeImplementationChart />
 
 The tool also gives clinicians a patient-level view of daily morphine equivalents and
 opioid administration, with more detail available when a specific day is selected.
 
-<img src="/projects/opioid-reduction-analytics/Pt_lvl.png" alt="Patient-level daily morphine equivalents dashboard" />
-<img src="/projects/opioid-reduction-analytics/Pt_lvl_meds.png" alt="Patient-level opioid administration detail" />
+<PatientMeTracker />
 
 ## Discussion
 
