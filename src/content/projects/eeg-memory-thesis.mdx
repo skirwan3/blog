@@ -5,7 +5,7 @@ export const metadata = {
   date: "2019-05-01",
   tags: ["neuroscience", "eeg", "r", "spss"],
   role: "Undergraduate Thesis, Brain, Cognition and Development Lab — University of Florida",
-  cover: "/projects/eeg-memory-thesis/banner.png",
+  cover: "/projects/eeg-memory-thesis/banner.jpg",
   links: [{ label: "Behavioral analysis (R)", href: "https://github.com/skirwan3/bcd_lab_thesis" }],
 };
 
@@ -27,8 +27,6 @@ memory for own- and other-race faces during an old/new memory task that manipula
 tonality (major key / minor key), in order to determine whether encoding or retrieval of
 faces is influenced by group familiarity and by encoding/retrieval context.
 
-<img src="/projects/eeg-memory-thesis/face_recall.jpg" alt="Face recall task stimuli" />
-<p className="caption">Example stimuli from the old/new face recall task</p>
 
 The experiment consisted of several blocks, each with a study phase followed by a
 corresponding test phase. During the study phase, participants memorized 16 sequentially
@@ -36,26 +34,25 @@ presented faces. In the test phase, those 16 faces were shown again, randomly mi
 16 new faces, and participants judged each as "old" or "new." Throughout, EEG data was
 collected via a 128-channel EEG cap measuring electrical activity at the scalp.
 
+<FaceMemoryTask />
+
 ## Data processing
 
-<img src="/projects/eeg-memory-thesis/EEG_Cap.jpeg" alt="128-channel EEG cap used for data collection" />
+<EegCapPhoto />
 
 The raw EEG data was processed in Net Station following a seven-step pipeline:
 
-1. Applying highpass and lowpass filters
-2. Segmentation
-3. Artifact detection
-4. Bad channel replacement
-5. Average specification
-6. Average reference
-7. Baseline correction
+<EegPipeline />
 
 Segmentation (step 2) is central to the analytical approach. Perception and memory are
 cognitive processes that unfold rapidly after a stimulus appears, so the analysis focuses
 on neural activity in the brief window immediately following each face. Segmentation
 creates 900-millisecond windows around each stimulus for close examination.
 
-<img src="/projects/eeg-memory-thesis/erpfig.jpeg" alt="Example event-related potential waveform" />
+Any single trial is dominated by background brain activity unrelated to the face. Averaging
+many time-locked segments cancels that activity out and leaves the response to the stimulus:
+
+<ErpAveraging />
 
 This brain response — a direct result of a stimulus — is called an **event-related
 potential (ERP)**. The analysis focused on ERP *components*, typically characterized by
@@ -70,8 +67,7 @@ spatial location and timing:
 - **P600** — recollection, a slower process providing explicit memory detail; positive peak around 600 ms, left/right posterior superior regions
 - **FN400** — familiarity, a fast process without explicit detail; negative trough around 400 ms, left/right anterior superior regions
 
-<img src="/projects/eeg-memory-thesis/regions.jpg" alt="Diagram of brain regions and electrodes associated with each ERP component" />
-<p className="caption">Electrode regions associated with each ERP component (top = anterior, bottom = posterior)</p>
+<ElectrodeMap />
 
 Behavioral data was collected alongside the EEG recordings via participants' old/new
 judgments. Performance measures — Hit Rate, Miss Rate, False Alarm Rate, Correct
@@ -85,14 +81,7 @@ SPSS. For each ERP component, a multivariate analysis of variance (MANOVA) teste
 effect of music context, race of face presented, participant judgment and brain region on
 mean ERP amplitude. The findings most relevant to context-dependent memory:
 
-<img src="/projects/eeg-memory-thesis/N170.jpg" alt="N170 interaction plot" />
-<p className="caption">N170: changed-context trials showed a greater mean amplitude than same-context trials on false alarms (p = 0.040)</p>
-
-<img src="/projects/eeg-memory-thesis/N250.jpg" alt="N250 interaction plot" />
-<p className="caption">N250: the same changed- vs. same-context pattern held for false alarms (p = 0.011)</p>
-
-<img src="/projects/eeg-memory-thesis/P600.jpg" alt="P600 interaction plot" />
-<p className="caption">P600: misses yielded a greater amplitude than false alarms under changed-context conditions (p = 0.005)</p>
+<ErpResults />
 
 A parallel MANOVA on the behavioral data tested music context and race of face against
 each performance measure. No significant relationship emerged between music context and
@@ -100,7 +89,7 @@ performance. Race, however, had a significant main effect on correct rejection r
 (p = 0.030): own-race faces (M = 0.618, SE = 0.014) were correctly rejected more often
 than other-race faces (M = 0.584, SE = 0.013).
 
-<img src="/projects/eeg-memory-thesis/Race_CR.jpg" alt="Correct rejection rate by race of face" />
+<CorrectRejectionChart />
 
 <Callout title="Key finding">
   Face memory and perception showed measurable sensitivity to environmental context:

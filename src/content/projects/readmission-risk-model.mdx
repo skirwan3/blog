@@ -33,7 +33,7 @@ closely with clinicians to identify factors likely to predict readmission — de
 diagnoses, medical conditions, medication administrations, functional assessment scores
 ("Caretool" scores), vitals and labs.
 
-<img src="/projects/readmission-risk-model/data_elements.png" alt="Candidate data elements considered for the model" />
+<DataElements />
 
 Preliminary analysis examined each element's relationship with readmission. Variables
 with low correlation or low sample size were excluded, and highly correlated variables
@@ -46,16 +46,15 @@ factor's score was calculated by multiplying its variable estimate by 10 and rou
 the nearest whole number, based on prior published approaches to readmission risk
 scores.<sup>1,2</sup>
 
-<img src="/projects/readmission-risk-model/score_calc.png" alt="Risk score calculation methodology" />
+<ScoreCalculation />
 
 Individual risk factor scores were summed into an overall risk score per patient, and
 patients were assigned to a risk group by score percentile: **Low** (0–75th percentile),
 **Medium** (75th–90th) and **High** (90th–100th).
 
-<img src="/projects/readmission-risk-model/risk_scores.png" alt="Risk scores by factor and risk group thresholds" />
+<RiskScorecard />
 
-<img src="/projects/readmission-risk-model/pt_examples.png" alt="Example patient risk score calculations" />
-<p className="caption">Two example patients illustrating risk score calculation and group assignment</p>
+<RiskCalculator />
 
 ## Results
 
@@ -70,7 +69,7 @@ estimates) were:
 **Area under the ROC curve.** To evaluate the model, we examined the AUC for the final
 logistic regression.
 
-<img src="/projects/readmission-risk-model/ROC.png" alt="ROC curve for the readmission model" />
+<RocCurve />
 
 <Callout title="Result">
   The model achieved an AUC of **0.6956**. While that may look modest in other contexts,
@@ -81,13 +80,13 @@ logistic regression.
 **Readmission rates.** Readmission rates were calculated for past patients by risk group,
 both overall and broken down by year.
 
-<img src="/projects/readmission-risk-model/performance.png" alt="Readmission rates by risk group and year" />
+<ReadmissionRates />
 
 **Visual analytics dashboard.** The tool was implemented in a SAS Visual Analytics
 dashboard showing the overall distribution of patient risk groups alongside patient-level
 detail on the factors contributing most to each score.
 
-<img src="/projects/readmission-risk-model/VA_dashboard.png" alt="SAS Visual Analytics readmission risk dashboard" />
+<RiskDashboard />
 
 ## Discussion
 
