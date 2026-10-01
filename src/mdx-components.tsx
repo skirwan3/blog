@@ -2,6 +2,13 @@ import type { MDXComponents } from "mdx/types";
 import { Callout } from "@/components/mdx/Callout";
 import { CompoundMeds } from "@/components/mdx/CompoundMeds";
 import {
+  CorrectRejectionChart,
+  ElectrodeMap,
+  ErpAveraging,
+  ErpResults,
+} from "@/components/mdx/EegInteractive";
+import { EegCapPhoto, EegPipeline, FaceMemoryTask } from "@/components/mdx/EegStatic";
+import {
   MeAdmissionDischargeChart,
   MeImplementationChart,
   MePercentChangeChart,
@@ -18,7 +25,14 @@ import { Tokenizer } from "@/components/mdx/Tokenizer";
 const components: MDXComponents = {
   Callout,
   CompoundMeds,
+  CorrectRejectionChart,
   DataElements,
+  EegCapPhoto,
+  EegPipeline,
+  ElectrodeMap,
+  ErpAveraging,
+  ErpResults,
+  FaceMemoryTask,
   MeAdmissionDischargeChart,
   MeImplementationChart,
   MePercentChangeChart,
