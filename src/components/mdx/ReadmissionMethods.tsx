@@ -276,7 +276,7 @@ export function RiskBands({ score, compact }: { score?: number; compact?: boolea
         {groups.map((g) => (
           <div key={g.group}>
             <p className="flex items-center gap-1.5 font-medium text-foreground">
-              <span className="size-2 rounded-full" style={{ background: g.color }} />
+              <span className="size-2 shrink-0 rounded-full" style={{ background: g.color }} />
               {g.group}
             </p>
             <p className="tabular-nums text-muted">

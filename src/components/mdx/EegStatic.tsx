@@ -2,7 +2,7 @@ const testLabels = ["New", "New", "New", "Old", "New", "Old"];
 
 function MusicTag({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 text-[11px] text-accent">
+    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 text-[11px] text-accent">
       <span aria-hidden>♪</span>
       {children}
     </span>
@@ -11,8 +11,8 @@ function MusicTag({ children }: { children: React.ReactNode }) {
 
 function PhaseHeader({ step, title, music, children }: { step: number; title: string; music: string; children: React.ReactNode }) {
   return (
-    <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-      <div>
+    <div className="mb-3 flex items-start justify-between gap-3">
+      <div className="min-w-0">
         <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <span className="grid size-5 place-items-center rounded-full bg-foreground/10 text-[11px] tabular-nums">{step}</span>
           {title}

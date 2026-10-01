@@ -41,7 +41,7 @@ export function GroupBadge({ group }: { group: RiskGroup }) {
       className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
       style={{ color: g.color, borderColor: `${g.color}66`, background: `${g.color}1a` }}
     >
-      <span className="size-1.5 rounded-full" style={{ background: g.color }} />
+      <span className="size-1.5 shrink-0 rounded-full" style={{ background: g.color }} />
       {group}
     </span>
   );

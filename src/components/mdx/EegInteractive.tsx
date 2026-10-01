@@ -381,7 +381,7 @@ export function ElectrodeMap() {
                 <dd className="text-foreground/90">{active.polarity > 0 ? "Positive peak" : "Negative trough"}</dd>
                 <dt className="text-muted">Region</dt>
                 <dd className="flex items-center gap-2 text-foreground/90">
-                  <span className="size-2 rounded-full" style={{ background: active.color }} />
+                  <span className="size-2 shrink-0 rounded-full" style={{ background: active.color }} />
                   {active.location}
                 </dd>
               </dl>

@@ -83,7 +83,7 @@ export function RiskDashboard() {
                 on ? "border-foreground/30 bg-foreground/10 text-foreground" : "border-border text-muted hover:text-foreground"
               }`}
             >
-              {color && <span className="size-2 rounded-full" style={{ background: color }} />}
+              {color && <span className="size-2 shrink-0 rounded-full" style={{ background: color }} />}
               {g}
               <span className="tabular-nums opacity-60">
                 {g === "All" ? histTotal.toLocaleString("en-US") : groupCount(g).toLocaleString("en-US")}
