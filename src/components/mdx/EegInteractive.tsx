@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { electrodes, landmarks, openPositions, regionPolygons, ringPaths, type RegionKey } from "./eegLayout";
 
 const BLUE = "#3987e5";
 const ORANGE = "#d95926";
@@ -12,27 +13,20 @@ const AQUA = "#199e70";
 
 type Component = {
   key: string;
-  name: string;
   kind: "Perceptual" | "Memory";
   latency: number;
   polarity: 1 | -1;
   reflects: string;
   location: string;
   color: string;
-  /** Simplified scalp regions as annular sectors: [angleFrom, angleTo, rFrom, rTo]; 0° = nose, clockwise. */
-  regions: [number, number, number, number][];
+  regions: RegionKey[];
 };
 
-const occipital: [number, number, number, number][] = [
-  [-150, -118, 0.62, 0.86],
-  [118, 150, 0.62, 0.86],
-  [160, 200, 0.66, 0.92],
-];
+const occipital: RegionKey[] = ["occL", "occR", "occM"];
 
 const components: Component[] = [
   {
     key: "P100",
-    name: "P100",
     kind: "Perceptual",
     latency: 100,
     polarity: 1,
@@ -43,7 +37,6 @@ const components: Component[] = [
   },
   {
     key: "N170",
-    name: "N170",
     kind: "Perceptual",
     latency: 170,
     polarity: -1,
@@ -54,7 +47,6 @@ const components: Component[] = [
   },
   {
     key: "N250",
-    name: "N250",
     kind: "Perceptual",
     latency: 250,
     polarity: -1,
@@ -65,31 +57,23 @@ const components: Component[] = [
   },
   {
     key: "FN400",
-    name: "FN400",
     kind: "Memory",
     latency: 400,
     polarity: -1,
     reflects: "Familiarity — a fast sense of “seen before” without detail",
     location: "Left/right anterior superior",
     color: AQUA,
-    regions: [
-      [-58, -12, 0.2, 0.6],
-      [12, 58, 0.2, 0.6],
-    ],
+    regions: ["fn400L", "fn400R"],
   },
   {
     key: "P600",
-    name: "P600",
     kind: "Memory",
     latency: 600,
     polarity: 1,
     reflects: "Recollection — slower, detailed explicit memory",
     location: "Left/right posterior superior",
     color: ORANGE,
-    regions: [
-      [-158, -112, 0.22, 0.56],
-      [112, 158, 0.22, 0.56],
-    ],
+    regions: ["p600L", "p600R"],
   },
 ];
 
@@ -98,16 +82,18 @@ const components: Component[] = [
 /* ------------------------------------------------------------------ */
 
 const T0 = -100;
-const T1 = 800;
-const DT = 5;
+const T1 = 400;
+const DT = 4;
 const times = Array.from({ length: (T1 - T0) / DT + 1 }, (_, i) => T0 + i * DT);
 
-/** Illustrative ERP shape: a sum of Gaussian bumps at typical component latencies (µV). */
-function trueErp(t: number) {
-  const g = (mu: number, sd: number, a: number) => a * Math.exp(-((t - mu) ** 2) / (2 * sd * sd));
-  return g(100, 18, 3) + g(170, 16, -3.6) + g(250, 28, -1.6) + g(400, 55, -1.4) + g(600, 110, 2.6);
-}
-const clean = times.map(trueErp);
+const g = (t: number, mu: number, sd: number, a: number) => a * Math.exp(-((t - mu) ** 2) / (2 * sd * sd));
+
+/**
+ * Illustrative right occipito-temporal waveform (µV), shaped after the P8 traces in Abreu et al. (2023):
+ * P100 ≈ 120 ms, N170 ≈ 185 ms, and a larger N250 for personally familiar faces.
+ */
+const unfamiliarErp = (t: number) => g(t, 120, 22, 1.9) + g(t, 185, 18, -3.3) + g(t, 300, 70, 0.6);
+const familiarErp = (t: number) => unfamiliarErp(t) + g(t, 290, 35, -2.1);
 
 /** Small seeded PRNG so every visitor sees the same "random" trials. */
 function mulberry32(seed: number) {
@@ -122,48 +108,53 @@ function mulberry32(seed: number) {
 
 const MAX_TRIALS = 100;
 
-/** Single-trial EEG: the ERP buried in smooth background activity (sum of random sinusoids). */
-function makeTrials() {
-  const rand = mulberry32(7);
+/** Single trials: the ERP buried in smooth background activity (a sum of random sinusoids). */
+function makeTrials(erp: (t: number) => number, seed: number) {
+  const rand = mulberry32(seed);
   return Array.from({ length: MAX_TRIALS }, () => {
     const waves = Array.from({ length: 6 }, () => ({
-      amp: 1.5 + rand() * 3,
+      amp: 0.8 + rand() * 1.6,
       freq: 4 + rand() * 14, // Hz
       phase: rand() * Math.PI * 2,
     }));
     return times.map(
-      (t, i) =>
-        clean[i] +
-        waves.reduce((s, w) => s + w.amp * Math.sin((2 * Math.PI * w.freq * t) / 1000 + w.phase), 0) +
-        (rand() - 0.5) * 2,
+      (t) => erp(t) + waves.reduce((s, w) => s + w.amp * Math.sin((2 * Math.PI * w.freq * t) / 1000 + w.phase), 0),
     );
   });
 }
 
-const trials = makeTrials();
+const conditions = [
+  { key: "familiar", label: "Personally familiar", color: BLUE, trials: makeTrials(familiarErp, 7) },
+  { key: "unfamiliar", label: "Unfamiliar", color: ORANGE, trials: makeTrials(unfamiliarErp, 11) },
+];
 
-const steps = ["Show a face", "Record EEG", "Cut 900 ms segment", "Average trials", "ERP"];
+const windows = [
+  { key: "P100", from: 80, to: 150, dashed: false },
+  { key: "N170", from: 150, to: 250, dashed: false },
+  { key: "N250", from: 250, to: 350, dashed: true },
+];
 
-/** Shows how averaging many noisy single trials reveals the event-related potential. */
+const steps = ["Show a face", "Record EEG", "Cut segment", "Average trials", "ERP"];
+
+/** Shows how averaging many noisy single trials reveals the occipito-temporal ERP to faces. */
 export function ErpAveraging() {
   const [n, setN] = useState(1);
-  const [hover, setHover] = useState<string | null>(null);
 
-  const avg = useMemo(
-    () => times.map((_, i) => trials.slice(0, n).reduce((s, tr) => s + tr[i], 0) / n),
+  const averages = useMemo(
+    () => conditions.map((c) => times.map((_, i) => c.trials.slice(0, n).reduce((s, tr) => s + tr[i], 0) / n)),
     [n],
   );
 
   const W = 600;
-  const H = 260;
-  const m = { l: 36, r: 24, t: 16, b: 28 };
+  const H = 270;
+  const m = { l: 36, r: 16, t: 26, b: 28 };
   const iw = W - m.l - m.r;
   const ih = H - m.t - m.b;
-  const yMax = 12;
+  const yMax = 6;
   const x = (t: number) => m.l + ((t - T0) / (T1 - T0)) * iw;
   const y = (v: number) => m.t + ih / 2 - (Math.max(-yMax, Math.min(yMax, v)) / yMax) * (ih / 2);
   const path = (vals: number[]) => vals.map((v, i) => `${i ? "L" : "M"}${x(times[i]).toFixed(1)},${y(v).toFixed(1)}`).join("");
-  const showLabels = n >= 30;
+  const clear = n >= 30;
 
   return (
     <figure className="not-prose my-10 rounded-xl border border-border bg-surface p-4 sm:p-5">
@@ -185,7 +176,7 @@ export function ErpAveraging() {
       <div className="mt-5">
         <div className="flex items-baseline justify-between text-xs">
           <label htmlFor="erp-trials" className="text-muted">
-            Trials averaged
+            Trials averaged per condition
           </label>
           <span className="font-semibold tabular-nums text-foreground">
             {n} <span className="font-normal text-muted">of {MAX_TRIALS}</span>
@@ -202,48 +193,60 @@ export function ErpAveraging() {
         />
       </div>
 
-      <svg viewBox={`0 0 ${W} ${H}`} className="mt-3 w-full" role="img" aria-label={`Average of ${n} EEG trials`}>
-        {[-10, -5, 0, 5, 10].map((v) => (
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <span className="text-muted">Right occipito-temporal electrode (P8)</span>
+        <span className="flex gap-4 text-foreground/85">
+          {conditions.map((c) => (
+            <span key={c.key} className="flex items-center gap-2">
+              <svg width="16" height="8" aria-hidden>
+                <line x1="0" x2="16" y1="4" y2="4" stroke={c.color} strokeWidth="2" />
+              </svg>
+              {c.label}
+            </span>
+          ))}
+        </span>
+      </div>
+
+      <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 w-full" role="img" aria-label={`Average of ${n} trials per condition`}>
+        {windows.map((w) => (
+          <g key={w.key} opacity={clear ? 1 : 0.45}>
+            <rect
+              x={x(w.from)}
+              y={m.t}
+              width={x(w.to) - x(w.from)}
+              height={ih}
+              fill="var(--foreground)"
+              fillOpacity={0.03}
+              stroke="var(--muted)"
+              strokeOpacity={0.6}
+              strokeDasharray={w.dashed ? "4 4" : undefined}
+            />
+            <text x={(x(w.from) + x(w.to)) / 2} y={m.t - 8} textAnchor="middle" className="fill-foreground text-[11px] font-semibold">
+              {w.key}
+            </text>
+          </g>
+        ))}
+        {[-4, -2, 0, 2, 4].map((v) => (
           <g key={v}>
-            <line x1={m.l} x2={W - m.r} y1={y(v)} y2={y(v)} stroke={v === 0 ? "#2c3144" : "var(--border)"} />
+            <line x1={m.l} x2={W - m.r} y1={y(v)} y2={y(v)} stroke={v === 0 ? "#2c3144" : "var(--border)"} strokeOpacity={v === 0 ? 1 : 0.6} />
             <text x={m.l - 6} y={y(v)} dy="0.32em" textAnchor="end" className="fill-muted text-[10px] tabular-nums">
               {v}
             </text>
           </g>
         ))}
-        {[0, 200, 400, 600, 800].map((t) => (
-          <text key={t} x={x(t)} y={H - 8} textAnchor="middle" className="fill-muted text-[10px] tabular-nums">
+        {[-100, 0, 100, 200, 300, 400].map((t) => (
+          <text key={t} x={x(t)} y={H - 8} textAnchor={t === 400 ? "end" : "middle"} className="fill-muted text-[10px] tabular-nums">
             {t} ms
           </text>
         ))}
         <line x1={x(0)} x2={x(0)} y1={m.t} y2={m.t + ih} stroke="var(--accent)" strokeDasharray="3 4" />
-        <text x={x(0) + 4} y={m.t + 8} className="fill-accent text-[10px]">
+        <text x={x(0) - 4} y={m.t + ih - 6} textAnchor="end" className="fill-accent text-[10px]">
           face appears
         </text>
 
-        {/* a few faint single trials for texture */}
-        {n > 1 &&
-          trials
-            .slice(0, Math.min(n, 4))
-            .map((tr, i) => <path key={i} d={path(tr)} fill="none" stroke="var(--muted)" strokeOpacity={0.18} strokeWidth={1} />)}
-
-        <path d={path(avg)} fill="none" stroke="#22d3ee" strokeWidth={2} strokeLinejoin="round" />
-
-        {showLabels &&
-          components.map((c) => {
-            const i = times.indexOf(c.latency);
-            const v = avg[i];
-            const ly = y(v) + (c.polarity > 0 ? -12 : 16);
-            const dim = hover && hover !== c.key;
-            return (
-              <g key={c.key} opacity={dim ? 0.3 : 1} onPointerEnter={() => setHover(c.key)} onPointerLeave={() => setHover(null)}>
-                <circle cx={x(c.latency)} cy={y(v)} r={3.5} fill={c.color} stroke="var(--surface)" strokeWidth={1.5} />
-                <text x={x(c.latency)} y={ly} textAnchor="middle" className="fill-foreground text-[10px] font-semibold">
-                  {c.name}
-                </text>
-              </g>
-            );
-          })}
+        {conditions.map((c, k) => (
+          <path key={c.key} d={path(averages[k])} fill="none" stroke={c.color} strokeWidth={2} strokeLinejoin="round" />
+        ))}
         <text x={8} y={m.t + ih / 2} transform={`rotate(-90 8 ${m.t + ih / 2})`} textAnchor="middle" className="fill-muted text-[10px]">
           µV
         </text>
@@ -251,13 +254,23 @@ export function ErpAveraging() {
 
       <p className="mt-2 min-h-10 text-sm text-muted" aria-live="polite">
         {n === 1
-          ? "A single trial is mostly background brain activity — the response to the face is buried in it. Drag the slider to average more trials."
-          : n < 30
+          ? "One trial per condition is mostly background brain activity — the response to the face is buried in it. Drag the slider to average more trials."
+          : !clear
             ? `Averaging ${n} trials: activity unrelated to the face starts to cancel out, while the time-locked response stays.`
-            : `With ${n} trials the ERP is clear, and its components can be read off by latency and polarity (positive up).`}
+            : "Now the P100, N170 and N250 stand out — and the N250 is more negative for personally familiar faces than for unfamiliar ones."}
       </p>
-      <figcaption className="mt-1 text-xs italic text-muted">
-        Illustrative simulation, not study data: the waveform shape is synthetic and the noise is randomly generated.
+      <figcaption className="mt-1 text-xs italic leading-relaxed text-muted">
+        Illustrative simulation, not study data: synthetic waveforms with randomly generated noise, shaped after the
+        occipito-temporal ERPs reported by{" "}
+        <a
+          href="https://doi.org/10.1016/j.neuropsychologia.2023.108623"
+          target="_blank"
+          rel="noreferrer"
+          className="text-accent-2 underline underline-offset-2"
+        >
+          Abreu et al. (2023)
+        </a>
+        . Boxes mark typical analysis windows for each component.
       </figcaption>
     </figure>
   );
@@ -267,61 +280,19 @@ export function ErpAveraging() {
 /* Electrode map                                                        */
 /* ------------------------------------------------------------------ */
 
-/** Approximate 128-channel layout: concentric rings of electrodes, 0° = nose, radius 1 = head edge. */
-const rings: [number, number][] = [
-  [0, 1],
-  [0.14, 6],
-  [0.28, 12],
-  [0.42, 18],
-  [0.56, 24],
-  [0.7, 30],
-  [0.84, 37],
-];
-const electrodes = rings.flatMap(([r, count], ri) =>
-  Array.from({ length: count }, (_, i) => ({ r, a: (360 / count) * i + (ri % 2 ? 180 / count : 0) })),
-);
-
-const norm = (a: number) => ((((a + 180) % 360) + 360) % 360) - 180;
-function inRegion(e: { r: number; a: number }, [a0, a1, r0, r1]: [number, number, number, number]) {
-  if (e.r < r0 || e.r > r1) return false;
-  const a = norm(e.a);
-  if (a1 > 180) return a >= a0 || a <= norm(a1); // wraps around the back of the head
-  return a >= a0 && a <= a1;
-}
-
-/** Interactive top-down head map of the electrode regions used for each ERP component. */
+/** Interactive map of the 128-channel net, tracing the lab's electrode-region diagram. */
 export function ElectrodeMap() {
   const [selected, setSelected] = useState<string>("all");
-  const S = 300;
-  const c = S / 2;
-  const R = 120;
-  const pt = (r: number, a: number) => {
-    const rad = (a * Math.PI) / 180;
-    return [c + r * R * Math.sin(rad), c - r * R * Math.cos(rad)];
-  };
-  const sector = ([a0, a1, r0, r1]: [number, number, number, number]) => {
-    const [x0, y0] = pt(r1, a0);
-    const [x1, y1] = pt(r1, a1);
-    const [x2, y2] = pt(r0, a1);
-    const [x3, y3] = pt(r0, a0);
-    const large = a1 - a0 > 180 ? 1 : 0;
-    return `M${x0},${y0} A${r1 * R},${r1 * R} 0 ${large} 1 ${x1},${y1} L${x2},${y2} A${r0 * R},${r0 * R} 0 ${large} 0 ${x3},${y3} Z`;
-  };
-
   const shown = selected === "all" ? components : components.filter((k) => k.key === selected);
-  // De-duplicate shared regions (P100/N170/N250 use the same electrodes).
-  const regionSets = Array.from(new Map(shown.map((k) => [JSON.stringify(k.regions), k])).values());
+  const regionColor = new Map<RegionKey, string>();
+  shown.forEach((k) => k.regions.forEach((r) => regionColor.set(r, k.color)));
   const active = components.find((k) => k.key === selected);
-
-  const colorFor = (e: { r: number; a: number }) => {
-    for (const k of regionSets) if (k.regions.some((reg) => inRegion(e, reg))) return k.color;
-    return null;
-  };
+  const landmarkAt = new Map(Object.entries(landmarks).map(([name, [lx, ly]]) => [`${lx},${ly}`, name]));
 
   return (
     <figure className="not-prose my-10 rounded-xl border border-border bg-surface p-4 sm:p-5">
       <div className="flex flex-wrap gap-1.5" role="group" aria-label="ERP component">
-        {[{ key: "all", name: "All" }, ...components].map((k) => (
+        {[{ key: "all" }, ...components].map((k) => (
           <button
             key={k.key}
             type="button"
@@ -333,51 +304,72 @@ export function ElectrodeMap() {
                 : "border-border text-muted hover:text-foreground"
             }`}
           >
-            {k.name}
+            {k.key === "all" ? "All" : k.key}
           </button>
         ))}
       </div>
 
-      <div className="mt-4 grid items-center gap-5 sm:grid-cols-[minmax(0,18rem)_1fr]">
-        <svg viewBox={`0 0 ${S} ${S}`} className="mx-auto w-full max-w-72" role="img" aria-label="Top-down view of the head showing electrode regions">
-          {/* nose and ears */}
-          <path d={`M${c - 12},${c - R + 2} L${c},${c - R - 16} L${c + 12},${c - R + 2}`} fill="none" stroke="var(--muted)" strokeOpacity="0.6" />
-          <ellipse cx={c - R - 4} cy={c} rx={7} ry={18} fill="none" stroke="var(--muted)" strokeOpacity="0.6" />
-          <ellipse cx={c + R + 4} cy={c} rx={7} ry={18} fill="none" stroke="var(--muted)" strokeOpacity="0.6" />
-          <circle cx={c} cy={c} r={R} fill="var(--background)" stroke="var(--muted)" strokeOpacity="0.6" />
-
-          {regionSets.flatMap((k) =>
-            k.regions.map((reg, i) => (
-              <path
-                key={`${k.key}-${i}`}
-                d={sector(reg)}
-                fill={k.color}
-                fillOpacity={0.18}
-                stroke={k.color}
-                strokeOpacity={0.6}
+      <div className="mt-4 grid items-center gap-5 sm:grid-cols-[minmax(0,22rem)_1fr]">
+        <svg viewBox="60 0 680 680" className="mx-auto w-full max-w-[22rem]" role="img" aria-label="Map of the 128-channel electrode net with component regions highlighted">
+          {ringPaths.map((d, i) => (
+            <path key={i} d={d} fill="none" stroke="var(--muted)" strokeOpacity={0.35} strokeWidth={1.5} />
+          ))}
+          {(Object.keys(regionPolygons) as RegionKey[]).map((r) => {
+            const col = regionColor.get(r);
+            return (
+              <polygon
+                key={r}
+                points={regionPolygons[r].map((p) => p.join(",")).join(" ")}
+                fill={col ?? "var(--foreground)"}
+                fillOpacity={col ? 0.2 : 0.03}
+                stroke={col ?? "var(--muted)"}
+                strokeOpacity={col ? 0.8 : 0.2}
+                strokeWidth={2}
+                strokeLinejoin="round"
+                className="transition-[fill-opacity,stroke-opacity] duration-300"
               />
-            )),
-          )}
-
-          {electrodes.map((e, i) => {
-            const [ex, ey] = pt(e.r, e.a);
-            const col = colorFor(e);
-            return <circle key={i} cx={ex} cy={ey} r={col ? 3.4 : 2.4} fill={col ?? "var(--muted)"} fillOpacity={col ? 1 : 0.35} />;
+            );
           })}
-
-          <text x={c} y={14} textAnchor="middle" className="fill-muted text-[9px] tracking-widest">
-            FRONT
-          </text>
-          <text x={c} y={S - 4} textAnchor="middle" className="fill-muted text-[9px] tracking-widest">
-            BACK
-          </text>
+          {openPositions.map(([ox, oy], i) => (
+            <circle key={i} cx={ox} cy={oy} r={10} fill="none" stroke="var(--muted)" strokeOpacity={0.35} strokeWidth={1.5} />
+          ))}
+          {electrodes.map(([ex, ey, r], i) => {
+            const col = r ? regionColor.get(r) : undefined;
+            const name = landmarkAt.get(`${ex},${ey}`);
+            return (
+              <g key={i}>
+                <circle
+                  cx={ex}
+                  cy={ey}
+                  r={11}
+                  fill={col ?? "var(--background)"}
+                  fillOpacity={col ? 0.9 : 1}
+                  stroke={col ?? "var(--muted)"}
+                  strokeOpacity={col ? 1 : 0.55}
+                  strokeWidth={2.5}
+                  className="transition-[fill] duration-300"
+                />
+                {name && (
+                  <text
+                    x={ex}
+                    y={ey}
+                    dy="0.35em"
+                    textAnchor="middle"
+                    className={`text-[9px] font-semibold ${col ? "fill-white" : "fill-muted"}`}
+                  >
+                    {name}
+                  </text>
+                )}
+              </g>
+            );
+          })}
         </svg>
 
         <div aria-live="polite">
           {active ? (
             <div>
               <p className="flex items-center gap-2">
-                <span className="text-2xl font-semibold text-foreground">{active.name}</span>
+                <span className="text-2xl font-semibold text-foreground">{active.key}</span>
                 <span className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted">{active.kind}</span>
               </p>
               <dl className="mt-3 grid grid-cols-[6rem_1fr] gap-y-2 text-sm">
@@ -400,12 +392,12 @@ export function ElectrodeMap() {
                 { color: BLUE, label: "P100 · N170 · N250", text: "Perception — occipital regions at the back of the head" },
                 { color: AQUA, label: "FN400", text: "Familiarity — anterior superior regions" },
                 { color: ORANGE, label: "P600", text: "Recollection — posterior superior regions" },
-              ].map((g) => (
-                <li key={g.label} className="flex gap-2.5">
-                  <span className="mt-1.5 size-2.5 shrink-0 rounded-full" style={{ background: g.color }} />
+              ].map((c) => (
+                <li key={c.label} className="flex gap-2.5">
+                  <span className="mt-1.5 size-2.5 shrink-0 rounded-full" style={{ background: c.color }} />
                   <span>
-                    <span className="font-semibold text-foreground">{g.label}</span>
-                    <span className="block text-muted">{g.text}</span>
+                    <span className="font-semibold text-foreground">{c.label}</span>
+                    <span className="block text-muted">{c.text}</span>
                   </span>
                 </li>
               ))}
@@ -415,8 +407,8 @@ export function ElectrodeMap() {
         </div>
       </div>
       <figcaption className="mt-4 text-xs italic text-muted">
-        Simplified, top-down view of the 128-electrode net (front of head at top). Shaded areas mark the electrode
-        regions averaged for each component.
+        The 128-channel net seen from above (front of the head at top), traced from the lab&apos;s electrode diagram.
+        Shaded regions are the electrode groups averaged for each component; standard 10–20 positions are labeled.
       </figcaption>
     </figure>
   );
