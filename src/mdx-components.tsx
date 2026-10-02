@@ -1,6 +1,15 @@
 import type { MDXComponents } from "mdx/types";
 import { Callout } from "@/components/mdx/Callout";
 import { CompoundMeds } from "@/components/mdx/CompoundMeds";
+import { BoostingExplainer, PricingFeatures, PricingPipeline, QuantileBands } from "@/components/mdx/DeereMethods";
+import {
+  ErrorByBin,
+  ErrorMetrics,
+  FeatureEffects,
+  FeatureImportance,
+  PredictedVsActual,
+  SavingsCalculator,
+} from "@/components/mdx/DeereResults";
 import {
   CorrectRejectionChart,
   ElectrodeMap,
@@ -23,6 +32,7 @@ import { RiskDashboard } from "@/components/mdx/RiskDashboard";
 import { Tokenizer } from "@/components/mdx/Tokenizer";
 
 const components: MDXComponents = {
+  BoostingExplainer,
   Callout,
   CompoundMeds,
   CorrectRejectionChart,
@@ -32,7 +42,11 @@ const components: MDXComponents = {
   ElectrodeMap,
   ErpAveraging,
   ErpResults,
+  ErrorByBin,
+  ErrorMetrics,
   FaceMemoryTask,
+  FeatureEffects,
+  FeatureImportance,
   MeAdmissionDischargeChart,
   MeImplementationChart,
   MePercentChangeChart,
@@ -40,11 +54,16 @@ const components: MDXComponents = {
   OpioidDeathsChart,
   PatchDose,
   PatientMeTracker,
+  PredictedVsActual,
+  PricingFeatures,
+  PricingPipeline,
+  QuantileBands,
   ReadmissionRates,
   RiskCalculator,
   RiskDashboard,
   RiskScorecard,
   RocCurve,
+  SavingsCalculator,
   ScoreCalculation,
   Tokenizer,
 };

@@ -1,0 +1,216 @@
+export const metadata = {
+  title: "Metal Fabrication Pricing Model",
+  description:
+    "Quantile gradient boosting models that estimate a low-to-high price range for simple metal fabrication parts, helping John Deere's supply chain teams spot overpriced parts and prioritize negotiations.",
+  date: "2023-08-01",
+  tags: ["supply-chain", "machine-learning", "gradient-boosting", "databricks"],
+  role: "Data Science Intern, Supply Chain Analytics — John Deere (Summer 2023)",
+  cover: "/projects/john-deere-pricing-model/banner.jpg",
+};
+
+## The business problem
+
+Every tractor, combine and sprayer that John Deere builds is made of thousands of
+purchased parts. A large share of them are **simple metal fabrications**: brackets,
+plates, rails and weldments that suppliers cut, bend and weld from steel. Supply chain
+teams decide which supplier makes each part and at what price, and they rely on many
+part-level data elements to do it.
+
+One data element they didn't have was an answer to a deceptively simple question:
+**what should this part cost?** During my summer 2023 internship with John Deere's
+Supply Chain Analytics team, I built machine learning models to answer it for simple
+metal fabrication parts bought from suppliers in Europe.
+
+Rather than a single number, the models produce a **price range**: a low, typical
+(median) and high estimate for each part. A range is more useful than a point estimate
+because real prices vary for legitimate reasons, and the question a buyer cares about is
+whether a price is *unusual*, not whether it matches a guess to the cent.
+
+<Callout title="Not a should-cost model">
+  A should-cost model builds a price from the bottom up: raw material, machine time,
+  labor. This model works top down, learning from the prices John Deere actually pays.
+  That means it captures things a should-cost model can't, like premiums for supplier
+  brand or quality, but it also means it reflects the market as it is, not as it ideally
+  would be.
+</Callout>
+
+With a price range available for every part, several workstreams open up:
+
+- **Cost savings:** compare each part's current price to its expected upper bound, then
+  re-quote or renegotiate parts that sit above it.
+- **Prioritization:** rank detailed should-cost reviews by their potential savings, so
+  cost engineers spend time where it pays off most.
+- **Supplier scorecards:** compare where each supplier's prices fall relative to peers
+  on similar parts.
+
+## The data
+
+I joined three internal datasets at the part level: **schedule agreements** (the active
+purchase contracts that record part, factory, supplier, price and expected volume),
+**supplier metadata**, and **part weights**. After cleaning, seven features remained to
+describe each part.
+
+<PricingFeatures />
+
+One cleaning step deserves a closer look. A handful of parts carried prices that made no
+sense for their weight, usually due to data entry or unit-of-measure issues. To keep
+them from distorting the model, I computed each part's **price per kilogram** and
+removed extreme values using the **1.5 × IQR rule**: anything more than 1.5 times the
+interquartile range (the spread of the middle 50% of values) beyond the 25th or 75th
+percentile was treated as an outlier.
+
+## How the model works
+
+### Gradient boosting, in plain terms
+
+The model is a **gradient boosted tree** ensemble. A single decision tree prices a part
+by asking a series of yes/no questions — *Is it heavier than 3 kg? Is annual volume
+below 1,000?* — and returning the average price of training parts that gave the same
+answers. One tree is crude. Boosting builds many small trees **in sequence**,
+where each new tree focuses only on the error the previous trees left behind. A
+**learning rate** scales each tree's correction down, so the model improves in many small,
+careful steps instead of a few big, overconfident ones.
+
+The interactive below runs real gradient boosting on simulated parts using a single
+feature, weight, so you can watch the prediction take shape:
+
+<BoostingExplainer />
+
+That gap between training and test error is why the data was split before training: **80%**
+of parts were used to train and tune the model (with 5-fold cross-validation choosing the
+settings), and **20%** were held back as a test set to measure how well it prices parts
+it has never seen.
+
+### Predicting a range with quantile regression
+
+A standard regression model predicts the *average* price. To predict a range, I trained
+**three** gradient boosting models with **quantile loss**, each aimed at a different
+point of the price distribution:
+
+- a **lower** model at the 10th percentile,
+- a **median** model at the 50th percentile, and
+- an **upper** model at the 90th percentile.
+
+Together, the lower and upper models form an **80% prediction interval**: for a typical
+part, we expect the price to land inside the range about 80% of the time. The trick is
+in the loss function. The upper model is penalized nine times more for pricing a part
+too low than too high, so it learns to sit above most prices. Try changing the interval
+width:
+
+<QuantileBands />
+
+The 80% width is a business choice, not a statistical law. A wider band flags fewer parts
+with more confidence, and a narrower one flags more parts for review. The pipeline lets
+the business adjust it later.
+
+### Putting it into production
+
+To make the model useful beyond a notebook, I built a training and inference pipeline in
+**Databricks**. Once deployed through John Deere's MLOps platform, it retrains the
+models and writes fresh price ranges to the company's data lake every week.
+
+<PricingPipeline />
+
+## Results
+
+### How close are the predictions?
+
+The plot below compares predicted and actual prices for test parts. A perfect model
+would put every dot on the dashed diagonal. The shaded band is the 80% range from the
+lower and upper models; dots outside it are either unusual parts or places where the
+model is struggling.
+
+<PredictedVsActual />
+
+Most parts cluster under $50, where predictions track actual prices closely. The median
+line bends away from the diagonal for the most expensive parts. There are few of them,
+and their prices depend on details (material grade, coatings, machining) that weight
+alone can't capture.
+
+### What drives price?
+
+**Feature importance** shows how much each feature contributes to the model's
+predictions. All three models agree on the big picture.
+
+<FeatureImportance />
+
+**Weight dominates**, accounting for 47–68% of importance depending on the model. This
+matched what pricing experts expected: heavier parts use more steel and more machine
+time. **Annual volume** ranks second for the upper and lower models, consistent with
+volume discounts. Quote type contributed essentially nothing; it was kept only so the
+feature set matched other pricing models.
+
+Importance tells us *which* features matter, but not *how*. For that, **partial
+dependence plots** isolate one feature at a time and show how the predicted price
+changes across its values:
+
+<FeatureEffects />
+
+Supplier and ordering factory showed effects of similar, modest size: most sit close to
+zero, with a few slightly above their peers. Some of that may reflect sourcing patterns
+rather than pricing, since difficult parts tend to go to the same capable suppliers
+again and again.
+
+### How accurate is it?
+
+Two metrics summarize accuracy. **Mean absolute error (MAE)** is the average dollar
+amount a prediction misses by. **Mean absolute percentage error (MAPE)** is the average
+miss as a share of the actual price. They tell different stories, so it helps to see
+them side by side:
+
+<ErrorMetrics />
+
+There was no existing pricing method to serve as a true baseline, so I compared the
+model against a simple **$3 per kilogram** rule of thumb. On the test set, the median
+model reduced dollar error by about 31% and percentage error by about 36%. Training error
+was lower (MAPE 27.9%, MAE $3.70), a gap that's expected with this much
+part-to-part variation, and the reason the test set matters.
+
+To see how the model would behave in real use, I also scored a larger inference dataset
+of 3,072 parts with broader filters (any weight from 0.1 to 1,000 kg). Breaking the error
+down by segment shows where the model is strongest:
+
+<ErrorByBin />
+
+## Savings identified
+
+The real test of a pricing model is whether it finds money. Once every part had a price
+range, I flagged parts priced **above the median** and **above the upper estimate**,
+then reviewed them with a cost engineer, who examined technical drawings and judged
+whether renegotiation was realistic. For each flagged part, savings were sized as a range:
+conservatively down to the upper estimate, and optimistically down to the median.
+
+<SavingsCalculator />
+
+<Callout title="Result">
+  Across simple metal fabrication parts bought from European suppliers, the model
+  identified **$162k–$500k** in potential cost savings.
+</Callout>
+
+## Limitations and next steps
+
+The model's biggest limitation is the data it can see. Weight is a strong but blunt proxy
+for cost: two 5 kg parts can differ wildly in material, complexity, paint and surface
+coating. Very cheap parts (where small dollar misses become large percentage errors) and
+very heavy or expensive parts (where data is sparse) remain the hardest to price.
+
+Separate experiments showed that adding **part dimensions and material type** reduces
+error further. That data existed for only about 10% of parts at the time, so it wasn't
+included. As those fields are filled in, and as users flag where the model's estimates
+miss, the model should keep improving.
+
+## Takeaway
+
+<Callout title="Takeaway">
+  Using only data John Deere already had, chiefly part weight, annual volume and part
+  age, three quantile gradient boosting models produce a **low–median–high price range**
+  for every simple metal fabrication part. The median model cut pricing error by about
+  a third compared with a $3/kg rule of thumb, and its estimates match how experts
+  think about cost: heavier parts cost more, and low-volume parts carry a premium. The
+  model's real value is triage. It turns thousands of parts into a short, ranked list
+  of likely overpriced ones, which surfaced **$162k–$500k** in potential savings in
+  Europe and gives sourcing teams a repeatable, weekly-refreshed starting point for
+  negotiations, should-cost prioritization and supplier benchmarking.
+</Callout>
+
+<p className="caption">Banner photo: “John Deere 6120M Tractor” by Oscar Taylor, <a href="https://commons.wikimedia.org/wiki/File:John_Deere_6120M_Tractor_-_geograph.org.uk_-_7614699.jpg">via Wikimedia Commons</a>, licensed <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC BY-SA 2.0</a>; cropped.</p>

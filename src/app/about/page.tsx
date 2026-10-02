@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 };
 
 const intro =
-  "I'm a data scientist with a background in neuroscience research and healthcare analytics. I'm most interested in applying machine learning and AI to real-world problems.";
+  "I'm a data scientist with a background in healthcare analytics and neuroscience research. I'm most interested in applying machine learning and AI to real-world problems.";
 
 const paragraphs = [
   "My path into data started in the lab. After studying psychology and neuroscience at the University of Florida, I spent two years as a research fellow at the National Institutes of Health, working on studies of adolescent depression and the long-term effects of infectious disease.",
