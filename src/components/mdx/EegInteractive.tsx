@@ -82,18 +82,32 @@ const components: Component[] = [
 /* ------------------------------------------------------------------ */
 
 const T0 = -100;
-const T1 = 400;
+const T1 = 800;
 const DT = 4;
 const times = Array.from({ length: (T1 - T0) / DT + 1 }, (_, i) => T0 + i * DT);
 
-const g = (t: number, mu: number, sd: number, a: number) => a * Math.exp(-((t - mu) ** 2) / (2 * sd * sd));
-
 /**
- * Illustrative right occipito-temporal waveform (µV), shaped after the P8 traces in Abreu et al. (2023):
- * P100 ≈ 120 ms, N170 ≈ 185 ms, and a larger N250 for personally familiar faces.
+ * Target waveform (µV), shaped after the study's occipital grand average (see the N170 results plot):
+ * a sharp P100 near 100 ms, the N170 dip near 145 ms, a small N250 dip near 245 ms, then a slow positivity.
  */
-const unfamiliarErp = (t: number) => g(t, 120, 22, 1.9) + g(t, 185, 18, -3.3) + g(t, 300, 70, 0.6);
-const familiarErp = (t: number) => unfamiliarErp(t) + g(t, 290, 35, -2.1);
+const knots: [number, number][] = [
+  [-100, 0.1], [-60, 0], [0, 0], [30, 0.05], [50, 0.25], [68, 0.45], [84, 2], [98, 3.45], [114, 2.4],
+  [132, 0.9], [145, 0.6], [160, 1.3], [178, 2.4], [200, 2.9], [222, 2.95], [245, 2.7], [270, 3.15],
+  [300, 3.35], [340, 3.3], [380, 3.3], [420, 3.15], [460, 2.95], [500, 2.65], [550, 2.25], [600, 1.95],
+  [650, 1.5], [700, 1.05], [750, 0.7], [800, 0.3],
+];
+
+/** Smooth interpolation through the knots (Catmull-Rom spline). */
+function targetErp(t: number) {
+  let i = knots.findIndex(([kt]) => kt > t) - 1;
+  if (i < 0) i = t <= knots[0][0] ? 0 : knots.length - 2;
+  const p0 = knots[Math.max(i - 1, 0)][1];
+  const [t1, p1] = knots[i];
+  const [t2, p2] = knots[i + 1];
+  const p3 = knots[Math.min(i + 2, knots.length - 1)][1];
+  const u = (t - t1) / (t2 - t1);
+  return 0.5 * (2 * p1 + (-p0 + p2) * u + (2 * p0 - 5 * p1 + 4 * p2 - p3) * u * u + (-p0 + 3 * p1 - 3 * p2 + p3) * u * u * u);
+}
 
 /** Small seeded PRNG so every visitor sees the same "random" trials. */
 function mulberry32(seed: number) {
@@ -106,55 +120,48 @@ function mulberry32(seed: number) {
   };
 }
 
-const MAX_TRIALS = 100;
+const MAX_TRIALS = 200;
+const target = times.map(targetErp);
 
 /** Single trials: the ERP buried in smooth background activity (a sum of random sinusoids). */
-function makeTrials(erp: (t: number) => number, seed: number) {
-  const rand = mulberry32(seed);
+const trials = (() => {
+  const rand = mulberry32(7);
   return Array.from({ length: MAX_TRIALS }, () => {
     const waves = Array.from({ length: 6 }, () => ({
-      amp: 0.8 + rand() * 1.6,
+      amp: 0.7 + rand() * 1.4,
       freq: 4 + rand() * 14, // Hz
       phase: rand() * Math.PI * 2,
     }));
     return times.map(
-      (t) => erp(t) + waves.reduce((s, w) => s + w.amp * Math.sin((2 * Math.PI * w.freq * t) / 1000 + w.phase), 0),
+      (t, i) => target[i] + waves.reduce((s, w) => s + w.amp * Math.sin((2 * Math.PI * w.freq * t) / 1000 + w.phase), 0),
     );
   });
-}
+})();
 
-const conditions = [
-  { key: "familiar", label: "Personally familiar", color: BLUE, trials: makeTrials(familiarErp, 7) },
-  { key: "unfamiliar", label: "Unfamiliar", color: ORANGE, trials: makeTrials(unfamiliarErp, 11) },
+/** Where each component is labelled on the averaged waveform. */
+const peaks = [
+  { key: "P100", t: 98, above: true },
+  { key: "N170", t: 145, above: false },
+  { key: "N250", t: 245, above: false },
 ];
 
-const windows = [
-  { key: "P100", from: 80, to: 150, dashed: false },
-  { key: "N170", from: 150, to: 250, dashed: false },
-  { key: "N250", from: 250, to: 350, dashed: true },
-];
+const steps = ["Show a face", "Record EEG", "Cut 900 ms segment", "Average trials", "ERP"];
 
-const steps = ["Show a face", "Record EEG", "Cut segment", "Average trials", "ERP"];
-
-/** Shows how averaging many noisy single trials reveals the occipito-temporal ERP to faces. */
+/** Shows how averaging many noisy single trials reveals the occipital ERP to faces. */
 export function ErpAveraging() {
   const [n, setN] = useState(1);
-
-  const averages = useMemo(
-    () => conditions.map((c) => times.map((_, i) => c.trials.slice(0, n).reduce((s, tr) => s + tr[i], 0) / n)),
-    [n],
-  );
+  const avg = useMemo(() => times.map((_, i) => trials.slice(0, n).reduce((s, tr) => s + tr[i], 0) / n), [n]);
 
   const W = 600;
   const H = 270;
-  const m = { l: 36, r: 16, t: 26, b: 28 };
+  const m = { l: 36, r: 24, t: 16, b: 28 };
   const iw = W - m.l - m.r;
   const ih = H - m.t - m.b;
-  const yMax = 6;
+  const [yLo, yHi] = [-4, 6];
   const x = (t: number) => m.l + ((t - T0) / (T1 - T0)) * iw;
-  const y = (v: number) => m.t + ih / 2 - (Math.max(-yMax, Math.min(yMax, v)) / yMax) * (ih / 2);
+  const y = (v: number) => m.t + ((yHi - Math.max(yLo, Math.min(yHi, v))) / (yHi - yLo)) * ih;
   const path = (vals: number[]) => vals.map((v, i) => `${i ? "L" : "M"}${x(times[i]).toFixed(1)},${y(v).toFixed(1)}`).join("");
-  const clear = n >= 30;
+  const clear = n >= 60;
 
   return (
     <figure className="not-prose my-10 rounded-xl border border-border bg-surface p-4 sm:p-5">
@@ -176,7 +183,7 @@ export function ErpAveraging() {
       <div className="mt-5">
         <div className="flex items-baseline justify-between text-xs">
           <label htmlFor="erp-trials" className="text-muted">
-            Trials averaged per condition
+            Trials averaged
           </label>
           <span className="font-semibold tabular-nums text-foreground">
             {n} <span className="font-normal text-muted">of {MAX_TRIALS}</span>
@@ -193,49 +200,17 @@ export function ErpAveraging() {
         />
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs">
-        <span className="text-muted">Right occipito-temporal electrode (P8)</span>
-        <span className="flex gap-4 text-foreground/85">
-          {conditions.map((c) => (
-            <span key={c.key} className="flex items-center gap-2">
-              <svg width="16" height="8" aria-hidden>
-                <line x1="0" x2="16" y1="4" y2="4" stroke={c.color} strokeWidth="2" />
-              </svg>
-              {c.label}
-            </span>
-          ))}
-        </span>
-      </div>
-
-      <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 w-full" role="img" aria-label={`Average of ${n} trials per condition`}>
-        {windows.map((w) => (
-          <g key={w.key} opacity={clear ? 1 : 0.45}>
-            <rect
-              x={x(w.from)}
-              y={m.t}
-              width={x(w.to) - x(w.from)}
-              height={ih}
-              fill="var(--foreground)"
-              fillOpacity={0.03}
-              stroke="var(--muted)"
-              strokeOpacity={0.6}
-              strokeDasharray={w.dashed ? "4 4" : undefined}
-            />
-            <text x={(x(w.from) + x(w.to)) / 2} y={m.t - 8} textAnchor="middle" className="fill-foreground text-[11px] font-semibold">
-              {w.key}
-            </text>
-          </g>
-        ))}
-        {[-4, -2, 0, 2, 4].map((v) => (
+      <svg viewBox={`0 0 ${W} ${H}`} className="mt-4 w-full" role="img" aria-label={`Average of ${n} EEG trials`}>
+        {[-2, 0, 2, 4].map((v) => (
           <g key={v}>
-            <line x1={m.l} x2={W - m.r} y1={y(v)} y2={y(v)} stroke={v === 0 ? "#2c3144" : "var(--border)"} strokeOpacity={v === 0 ? 1 : 0.6} />
+            <line x1={m.l} x2={W - m.r} y1={y(v)} y2={y(v)} stroke={v === 0 ? "#2c3144" : "var(--border)"} />
             <text x={m.l - 6} y={y(v)} dy="0.32em" textAnchor="end" className="fill-muted text-[10px] tabular-nums">
               {v}
             </text>
           </g>
         ))}
-        {[-100, 0, 100, 200, 300, 400].map((t) => (
-          <text key={t} x={x(t)} y={H - 8} textAnchor={t === 400 ? "end" : "middle"} className="fill-muted text-[10px] tabular-nums">
+        {[-100, 0, 200, 400, 600, 800].map((t) => (
+          <text key={t} x={x(t)} y={H - 8} textAnchor={t === 800 ? "end" : "middle"} className="fill-muted text-[10px] tabular-nums">
             {t} ms
           </text>
         ))}
@@ -244,9 +219,22 @@ export function ErpAveraging() {
           face appears
         </text>
 
-        {conditions.map((c, k) => (
-          <path key={c.key} d={path(averages[k])} fill="none" stroke={c.color} strokeWidth={2} strokeLinejoin="round" />
-        ))}
+        <path d={path(avg)} fill="none" stroke="#22d3ee" strokeWidth={2} strokeLinejoin="round" />
+
+        {peaks.map((p) => {
+          const v = avg[Math.round((p.t - T0) / DT)];
+          const px = x(p.t);
+          const py = y(v);
+          const ly = p.above ? py - 12 : py + 18;
+          return (
+            <g key={p.key} opacity={clear ? 1 : 0} className="transition-opacity duration-500">
+              <circle cx={px} cy={py} r={3.5} fill="#22d3ee" stroke="var(--surface)" strokeWidth={1.5} />
+              <text x={px} y={ly} textAnchor="middle" className="fill-foreground text-[11px] font-semibold">
+                {p.key}
+              </text>
+            </g>
+          );
+        })}
         <text x={8} y={m.t + ih / 2} transform={`rotate(-90 8 ${m.t + ih / 2})`} textAnchor="middle" className="fill-muted text-[10px]">
           µV
         </text>
@@ -254,23 +242,14 @@ export function ErpAveraging() {
 
       <p className="mt-2 min-h-10 text-sm text-muted" aria-live="polite">
         {n === 1
-          ? "One trial per condition is mostly background brain activity — the response to the face is buried in it. Drag the slider to average more trials."
+          ? "A single trial is mostly background brain activity — the response to the face is buried in it. Drag the slider to average more trials."
           : !clear
             ? `Averaging ${n} trials: activity unrelated to the face starts to cancel out, while the time-locked response stays.`
-            : "Now the P100, N170 and N250 stand out — and the N250 is more negative for personally familiar faces than for unfamiliar ones."}
+            : `With ${n} trials the ERP is clear: the P100 peak, followed by the N170 and N250 dips that the analysis measured.`}
       </p>
       <figcaption className="mt-1 text-xs italic leading-relaxed text-muted">
-        Illustrative simulation, not study data: synthetic waveforms with randomly generated noise, shaped after the
-        occipito-temporal ERPs reported by{" "}
-        <a
-          href="https://doi.org/10.1016/j.neuropsychologia.2023.108623"
-          target="_blank"
-          rel="noreferrer"
-          className="text-accent-2 underline underline-offset-2"
-        >
-          Abreu et al. (2023)
-        </a>
-        . Boxes mark typical analysis windows for each component.
+        Illustrative simulation: the waveform the trials average toward is modeled on this study&apos;s occipital ERP
+        (see the N170 results below), and the trial-by-trial noise is randomly generated.
       </figcaption>
     </figure>
   );
