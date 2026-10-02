@@ -240,12 +240,10 @@ export function ErpAveraging() {
         </text>
       </svg>
 
-      <p className="mt-2 min-h-10 text-sm text-muted" aria-live="polite">
-        {n === 1
-          ? "A single trial is mostly background brain activity — the response to the face is buried in it. Drag the slider to average more trials."
-          : !clear
-            ? `Averaging ${n} trials: activity unrelated to the face starts to cancel out, while the time-locked response stays.`
-            : `With ${n} trials the ERP is clear: the P100 peak, followed by the N170 and N250 dips that the analysis measured.`}
+      <p className="mt-2 text-sm text-muted">
+        A single trial is mostly background brain activity, with the response to the face buried inside it. Averaging
+        many trials cancels out that unrelated activity, and the ERP emerges, revealing the P100 peak followed by the
+        N170 and N250 dips.
       </p>
       <figcaption className="mt-1 text-xs italic leading-relaxed text-muted">
         Illustrative simulation: the waveform the trials average toward is modeled on this study&apos;s occipital ERP
