@@ -18,7 +18,7 @@ import {
   VIOLET,
   YELLOW,
 } from "./deereChart";
-import { fitLines, pdpAge, pdpCountry, pdpEau, pdpWeight, predictedVsActual } from "./deerePricingData";
+import { fitLines, pdpAge, pdpEau, pdpWeight, predictedVsActual } from "./deerePricingData";
 
 /* ------------------------------------------------------------------ */
 /* Predicted vs actual                                                  */
@@ -219,7 +219,7 @@ export function FeatureImportance() {
 /* Feature effects (partial dependence)                                 */
 /* ------------------------------------------------------------------ */
 
-const effectTabs = ["Weight", "Annual volume", "Part age", "Country"] as const;
+const effectTabs = ["Weight", "Annual volume", "Part age"] as const;
 type EffectTab = (typeof effectTabs)[number];
 
 type NumericEffect = {
@@ -237,7 +237,7 @@ type NumericEffect = {
 
 const k = (v: number) => (v >= 1000 ? `${v / 1000}k` : String(v));
 
-const numericEffects: Record<Exclude<EffectTab, "Country">, NumericEffect> = {
+const numericEffects: Record<EffectTab, NumericEffect> = {
   Weight: {
     points: pdpWeight,
     trend: [
@@ -251,7 +251,7 @@ const numericEffects: Record<Exclude<EffectTab, "Country">, NumericEffect> = {
     xLabel: "Part weight (kg)",
     xFormat: String,
     readout: (x, y) => `A ${x.toFixed(0)} kg part adds about ${usd(y, 0)} to its predicted price.`,
-    note: "A straight line: each extra kilogram adds roughly $5.65. Two very heavy parts (~320 kg) sit off the chart, below the line, so the effect tapers for the largest parts.",
+    note: "A straight line: each extra kilogram adds roughly $5.65 to the predicted price.",
   },
   "Annual volume": {
     points: pdpEau,
@@ -273,7 +273,7 @@ const numericEffects: Record<Exclude<EffectTab, "Country">, NumericEffect> = {
     xFormat: k,
     readout: (x, y) =>
       `At ${Math.round(x).toLocaleString("en-US")} parts/yr, the price shifts ${y >= 0 ? "up" : "down"} by about ${usd(Math.abs(y))}.`,
-    note: "Low-volume parts carry a premium; it disappears at about 1,000 parts a year, after which extra volume barely matters. Parts above 10k/yr (off the chart) stay flat at about −$1.80.",
+    note: "Low-volume parts carry a premium. It disappears at about 1,000 parts a year, after which extra volume barely matters.",
   },
   "Part age": {
     points: pdpAge,
@@ -298,18 +298,11 @@ const numericEffects: Record<Exclude<EffectTab, "Country">, NumericEffect> = {
     xFormat: k,
     readout: (x, y) =>
       `A part first sourced ${(x / 365).toFixed(1)} years ago shifts ${y >= 0 ? "up" : "down"} by about ${usd(Math.abs(y))}.`,
-    note: "A small effect: parts sourced in the last few years price slightly higher than long-running parts, consistent with older contracts locked in at older price levels.",
+    note: "A small effect: parts sourced in the last few years price slightly higher than long-running parts.",
   },
 };
 
-const countryMedians: Record<string, number> = {
-  CZ: -0.15, DE: -0.05, ES: -0.05, FR: -0.1, IT: -0.25, NL: -0.1, Other: 0, SK: 0.1, TR: 0.4, US: 0.75,
-};
-const countryNames: Record<string, string> = {
-  CZ: "Czechia", DE: "Germany", ES: "Spain", FR: "France", IT: "Italy", NL: "Netherlands", Other: "Other", SK: "Slovakia", TR: "Türkiye", US: "United States",
-};
-
-/** How each feature pushes the predicted price up or down (upper model), traced from the report. */
+/** How each feature pushes the predicted price up or down (upper model), on simulated points shaped like the report's figures. */
 export function FeatureEffects() {
   const [tab, setTab] = useState<EffectTab>("Weight");
   const [hx, setHx] = useState<number | null>(null);
@@ -318,108 +311,61 @@ export function FeatureEffects() {
   const H = 280;
   const plot = { l: 58, r: W - 12, t: 12, b: H - 40 };
 
-  let body: React.ReactNode;
-  let note: string;
-  let readout: string;
-
-  if (tab === "Country") {
-    const cats = Object.keys(countryMedians);
-    const band = (plot.r - plot.l) / cats.length;
-    const x = (i: number) => plot.l + band * (i + 0.5);
-    const y = linear([-4, 5], [plot.b, plot.t]);
-    note = "Most countries sit near zero. Parts shipped from Türkiye and the US price slightly higher, Czechia and Italy slightly lower — a modest effect next to weight and volume.";
-    readout =
-      hx !== null
-        ? `${countryNames[cats[hx]]}: typical shift of ${usd(countryMedians[cats[hx]])} (${pdpCountry[cats[hx]].length} traced parts).`
-        : "Hover a country to see its typical effect.";
-    body = (
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Price effect by ship-from country" onMouseLeave={() => setHx(null)}>
-        {[-4, -2, 0, 2, 4].map((t) => (
-          <g key={t}>
-            <line x1={plot.l} x2={plot.r} y1={y(t)} y2={y(t)} stroke={t === 0 ? "var(--muted)" : "var(--border)"} strokeOpacity={t === 0 ? 0.6 : 1} />
-            <text x={plot.l - 6} y={y(t)} dy="0.32em" textAnchor="end" className="fill-muted text-[10px] tabular-nums">
-              {t > 0 ? `+$${t}` : t < 0 ? `−$${-t}` : "$0"}
-            </text>
-          </g>
+  const e = numericEffects[tab];
+  const x = linear([0, e.xMax], [plot.l, plot.r]);
+  const y = linear(e.yRange, [plot.b, plot.t]);
+  const xs = Array.from({ length: 121 }, (_, i) => (i / 120) * e.xMax);
+  const readout = hx !== null ? e.readout(hx, interp(e.trend, hx)) : "Hover the chart to read the trend line at any value.";
+  const body = (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      className="w-full touch-none"
+      role="img"
+      aria-label={`Effect of ${tab.toLowerCase()} on predicted price`}
+      onMouseLeave={() => setHx(null)}
+      onPointerMove={(ev) => {
+        const r = ev.currentTarget.getBoundingClientRect();
+        const px = ((ev.clientX - r.left) / r.width) * W;
+        if (px < plot.l || px > plot.r) return setHx(null);
+        setHx(((px - plot.l) / (plot.r - plot.l)) * e.xMax);
+      }}
+    >
+      <defs>
+        <clipPath id="fe-clip">
+          <rect x={plot.l} y={plot.t} width={plot.r - plot.l} height={plot.b - plot.t} />
+        </clipPath>
+      </defs>
+      <Axes
+        x={x}
+        y={y}
+        xTicks={e.xTicks}
+        yTicks={e.yTicks}
+        xFormat={e.xFormat}
+        yFormat={(v) => (v > 0 ? `+$${v}` : v < 0 ? `−$${-v}` : "$0")}
+        xLabel={e.xLabel}
+        yLabel="Effect on price"
+        plot={plot}
+      />
+      <line x1={plot.l} x2={plot.r} y1={y(0)} y2={y(0)} stroke="var(--muted)" strokeOpacity="0.6" />
+      <g clipPath="url(#fe-clip)">
+        {e.points.map(([px, py], i) => (
+          <circle key={i} cx={x(px)} cy={y(py)} r={2.75} fill={VIOLET} fillOpacity="0.6" />
         ))}
-        {cats.map((c, i) => (
-          <g key={c} onMouseEnter={() => setHx(i)}>
-            <rect x={x(i) - band / 2} y={plot.t} width={band} height={plot.b - plot.t} fill={hx === i ? "var(--foreground)" : "transparent"} fillOpacity="0.04" />
-            {pdpCountry[c].map((v, j) => (
-              <circle key={j} cx={x(i) + ((j % 5) - 2) * 3} cy={y(v)} r={3} fill={VIOLET} fillOpacity="0.75" stroke="var(--surface)" strokeWidth="1" />
-            ))}
-            <line x1={x(i) - 14} x2={x(i) + 14} y1={y(countryMedians[c])} y2={y(countryMedians[c])} stroke={BLUE} strokeWidth="3" strokeLinecap="round" />
-            <text x={x(i)} y={plot.b + 15} textAnchor="middle" className="fill-muted text-[10px]">
-              {c}
-            </text>
+        <path d={pathFrom(xs.map((v) => [x(v), y(interp(e.trend, v))]))} fill="none" stroke={BLUE} strokeWidth="2.5" />
+        {hx !== null && (
+          <g>
+            <line x1={x(hx)} x2={x(hx)} y1={plot.t} y2={plot.b} stroke="var(--foreground)" strokeOpacity="0.4" />
+            <circle cx={x(hx)} cy={y(interp(e.trend, hx))} r={5} fill={BLUE} stroke="var(--surface)" strokeWidth="2" />
           </g>
-        ))}
-        <text x={(plot.l + plot.r) / 2} y={plot.b + 32} textAnchor="middle" className="fill-muted text-[11px]">
-          Ship-from country
-        </text>
-        <text x={11} y={(plot.t + plot.b) / 2} textAnchor="middle" className="fill-muted text-[11px]" transform={`rotate(-90 11 ${(plot.t + plot.b) / 2})`}>
-          Effect on price
-        </text>
-      </svg>
-    );
-  } else {
-    const e = numericEffects[tab];
-    const x = linear([0, e.xMax], [plot.l, plot.r]);
-    const y = linear(e.yRange, [plot.b, plot.t]);
-    const xs = Array.from({ length: 121 }, (_, i) => (i / 120) * e.xMax);
-    note = e.note;
-    readout = hx !== null ? e.readout(hx, interp(e.trend, hx)) : "Hover the chart to read the trend line at any value.";
-    body = (
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        className="w-full touch-none"
-        role="img"
-        aria-label={`Effect of ${tab.toLowerCase()} on predicted price`}
-        onMouseLeave={() => setHx(null)}
-        onPointerMove={(ev) => {
-          const r = ev.currentTarget.getBoundingClientRect();
-          const px = ((ev.clientX - r.left) / r.width) * W;
-          if (px < plot.l || px > plot.r) return setHx(null);
-          setHx(((px - plot.l) / (plot.r - plot.l)) * e.xMax);
-        }}
-      >
-        <defs>
-          <clipPath id="fe-clip">
-            <rect x={plot.l} y={plot.t} width={plot.r - plot.l} height={plot.b - plot.t} />
-          </clipPath>
-        </defs>
-        <Axes
-          x={x}
-          y={y}
-          xTicks={e.xTicks}
-          yTicks={e.yTicks}
-          xFormat={e.xFormat}
-          yFormat={(v) => (v > 0 ? `+$${v}` : v < 0 ? `−$${-v}` : "$0")}
-          xLabel={e.xLabel}
-          yLabel="Effect on price"
-          plot={plot}
-        />
-        <line x1={plot.l} x2={plot.r} y1={y(0)} y2={y(0)} stroke="var(--muted)" strokeOpacity="0.6" />
-        <g clipPath="url(#fe-clip)">
-          {e.points.map(([px, py], i) => (
-            <circle key={i} cx={x(px)} cy={y(py)} r={2.75} fill={VIOLET} fillOpacity="0.6" />
-          ))}
-          <path d={pathFrom(xs.map((v) => [x(v), y(interp(e.trend, v))]))} fill="none" stroke={BLUE} strokeWidth="2.5" />
-          {hx !== null && (
-            <g>
-              <line x1={x(hx)} x2={x(hx)} y1={plot.t} y2={plot.b} stroke="var(--foreground)" strokeOpacity="0.4" />
-              <circle cx={x(hx)} cy={y(interp(e.trend, hx))} r={5} fill={BLUE} stroke="var(--surface)" strokeWidth="2" />
-            </g>
-          )}
-        </g>
-      </svg>
-    );
-  }
+        )}
+      </g>
+    </svg>
+  );
 
   return (
-    <Figure caption="Partial dependence for the upper model. Each dot is a part; its height is how many dollars that one feature added to or removed from the part's predicted price. Points are traced from the report's figures.">
+    <Figure caption="Illustrative partial dependence for the upper model. The dots are simulated to resemble the general patterns in the original analysis; they are not actual John Deere parts. Each dot's height is how many dollars one feature adds to or removes from a part's predicted price.">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <ChartTitle title="How each feature moves the price" subtitle="Dollars added to (or removed from) the prediction" />
+        <ChartTitle title="How each feature moves the price" subtitle="Simulated data · dollars added to (or removed from) the prediction" />
         <Segmented
           options={effectTabs}
           value={tab}
@@ -434,7 +380,7 @@ export function FeatureEffects() {
       <p className="mt-2 min-h-[1.25rem] text-center text-xs tabular-nums text-foreground" aria-live="polite">
         {readout}
       </p>
-      <p className="mt-3 rounded-lg border border-border bg-background/60 px-4 py-3 text-sm text-muted">{note}</p>
+      <p className="mt-3 rounded-lg border border-border bg-background/60 px-4 py-3 text-sm text-muted">{e.note}</p>
     </Figure>
   );
 }
@@ -449,7 +395,7 @@ const examples = [
   { part: "Frame rail", actual: 120, predicted: 132 },
 ];
 
-/** Worked example of MAE and MAPE, then the headline comparison against the $3/kg rule of thumb. */
+/** Worked example of MAE and MAPE, then the headline comparison against the $3/kg reference. */
 export function ErrorMetrics() {
   const rows = examples.map((e) => ({
     ...e,
@@ -460,7 +406,7 @@ export function ErrorMetrics() {
   const mape = rows.reduce((a, r) => a + r.pct, 0) / rows.length;
 
   return (
-    <Figure caption="Top: a three-part worked example. MAE is driven by expensive parts, MAPE by cheap ones. Bottom: the median model against a simple $3-per-kg rule of thumb on the test data.">
+    <Figure caption="Top: a three-part worked example. MAE is driven by expensive parts, MAPE by cheap ones. Bottom: the median model against the $3-per-kg reference on the test data.">
       <ChartTitle title="Reading the error metrics" subtitle="Worked example with three hypothetical parts" />
       <div className="mt-4 overflow-x-auto">
         <table className="w-full text-sm tabular-nums">
@@ -508,7 +454,7 @@ export function ErrorMetrics() {
             <div className="mt-2 space-y-2">
               {[
                 { name: "ML median model", v: m.ml, color: BLUE },
-                { name: "$3/kg rule", v: m.ref, color: ORANGE },
+                { name: "$3/kg reference", v: m.ref, color: ORANGE },
               ].map((b) => (
                 <div key={b.name} className="grid grid-cols-[6.5rem_1fr_3.5rem] items-center gap-2 text-xs">
                   <span className="text-foreground/85">{b.name}</span>
@@ -520,7 +466,7 @@ export function ErrorMetrics() {
               ))}
             </div>
             <p className="mt-2 text-[11px] text-muted">
-              {Math.round((1 - m.ml / m.ref) * 100)}% lower error than the rule of thumb
+              {Math.round((1 - m.ml / m.ref) * 100)}% lower error than the $3/kg reference
             </p>
           </div>
         ))}
@@ -572,13 +518,13 @@ type Metric = (typeof metrics)[number];
 const SMALL_N = 15;
 
 const binNotes: Record<string, string> = {
-  "Price ($)": "The model has lower percentage error than the rule of thumb in every price band. The one miss is dollar error for the 34 parts over $100, which are hard to price from weight alone.",
+  "Price ($)": "The model has lower percentage error than the $3/kg reference in every price band. The one miss is dollar error for the 34 parts over $100, which are hard to price from weight alone.",
   "Weight (kg)": "Over 90% of parts weigh under 5 kg. Heavier bands hold only a handful of parts each, so their errors swing widely.",
   "Price per kg":
-    "When a part really does cost about $2–4 per kg, the $3/kg rule is nearly right by definition. For everything else — especially pricier-per-kg parts — the model is far closer.",
+    "When a part really does cost about $2–4 per kg, the $3/kg reference is nearly right by definition. For everything else, especially parts that cost more per kg, the model is far closer.",
 };
 
-/** Error for the ML model vs. the $3/kg rule within segments of the inference data. */
+/** Error for the ML model vs. the $3/kg reference within segments of the inference data. */
 export function ErrorByBin() {
   const [tab, setTab] = useState<string>("Price ($)");
   const [metric, setMetric] = useState<Metric>("MAPE");
@@ -589,7 +535,7 @@ export function ErrorByBin() {
   return (
     <Figure caption="Error by segment on the larger inference dataset (3,072 parts). Lower is better. Bars beyond the axis are cut off and marked with an arrow; faded rows have fewer than 15 parts.">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <ChartTitle title="Where the model does well, and where it struggles" subtitle="ML median model vs. $3/kg rule" />
+        <ChartTitle title="Where the model does well, and where it struggles" subtitle="ML median model vs. $3/kg reference" />
         <div className="flex flex-wrap gap-2">
           <Segmented options={binTabs} value={tab} onChange={setTab} label="Segment by" />
           <Segmented options={metrics} value={metric} onChange={setMetric} label="Metric" />
@@ -597,7 +543,7 @@ export function ErrorByBin() {
       </div>
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
         <LegendItem color={BLUE} label="ML median model" />
-        <LegendItem color={ORANGE} label="$3/kg rule" />
+        <LegendItem color={ORANGE} label="$3/kg reference" />
       </div>
       <div className="mt-4 space-y-3">
         {rows.map((r) => {

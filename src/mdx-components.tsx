@@ -1,7 +1,13 @@
 import type { MDXComponents } from "mdx/types";
 import { Callout } from "@/components/mdx/Callout";
 import { CompoundMeds } from "@/components/mdx/CompoundMeds";
-import { BoostingExplainer, PricingFeatures, PricingPipeline, QuantileBands } from "@/components/mdx/DeereMethods";
+import {
+  BoostingExplainer,
+  PricingFeatures,
+  PricingPipeline,
+  QuantileBands,
+  QuantileLoss,
+} from "@/components/mdx/DeereMethods";
 import {
   ErrorByBin,
   ErrorMetrics,
@@ -58,6 +64,7 @@ const components: MDXComponents = {
   PricingFeatures,
   PricingPipeline,
   QuantileBands,
+  QuantileLoss,
   ReadmissionRates,
   RiskCalculator,
   RiskDashboard,

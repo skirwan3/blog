@@ -4,7 +4,7 @@ export const metadata = {
     "Quantile gradient boosting models that estimate a low-to-high price range for simple metal fabrication parts, helping John Deere's supply chain teams spot overpriced parts and prioritize negotiations.",
   date: "2023-08-01",
   tags: ["supply-chain", "machine-learning", "gradient-boosting", "databricks"],
-  role: "Data Science Intern, Supply Chain Analytics — John Deere (Summer 2023)",
+  role: "Data Science Intern, Supply Chain Analytics, John Deere (Summer 2023)",
   cover: "/projects/john-deere-pricing-model/banner.jpg",
 };
 
@@ -16,10 +16,11 @@ plates, rails and weldments that suppliers cut, bend and weld from steel. Supply
 teams decide which supplier makes each part and at what price, and they rely on many
 part-level data elements to do it.
 
-One data element they didn't have was an answer to a deceptively simple question:
-**what should this part cost?** During my summer 2023 internship with John Deere's
-Supply Chain Analytics team, I built machine learning models to answer it for simple
-metal fabrication parts bought from suppliers in Europe.
+One data element they didn't have was an **expected price estimate**: given what John
+Deere pays for similar parts, what price would we expect to see for this one? During my
+summer 2023 internship with John Deere's Supply Chain Analytics team, I built machine
+learning models to provide that estimate for simple metal fabrication parts bought from
+suppliers in Europe.
 
 Rather than a single number, the models produce a **price range**: a low, typical
 (median) and high estimate for each part. A range is more useful than a point estimate
@@ -34,7 +35,7 @@ whether a price is *unusual*, not whether it matches a guess to the cent.
   would be.
 </Callout>
 
-With a price range available for every part, several workstreams open up:
+With price range estimates available, several workstreams open up:
 
 - **Cost savings:** compare each part's current price to its expected upper bound, then
   re-quote or renegotiate parts that sit above it.
@@ -52,10 +53,8 @@ describe each part.
 
 <PricingFeatures />
 
-One cleaning step deserves a closer look. A handful of parts carried prices that made no
-sense for their weight, usually due to data entry or unit-of-measure issues. To keep
-them from distorting the model, I computed each part's **price per kilogram** and
-removed extreme values using the **1.5 × IQR rule**: anything more than 1.5 times the
+To keep extreme prices from distorting the model, I computed each part's **price per
+kilogram** and removed outliers using the **1.5 × IQR rule**: anything more than 1.5 times the
 interquartile range (the spread of the middle 50% of values) beyond the 25th or 75th
 percentile was treated as an outlier.
 
@@ -64,15 +63,26 @@ percentile was treated as an outlier.
 ### Gradient boosting, in plain terms
 
 The model is a **gradient boosted tree** ensemble. A single decision tree prices a part
-by asking a series of yes/no questions — *Is it heavier than 3 kg? Is annual volume
-below 1,000?* — and returning the average price of training parts that gave the same
-answers. One tree is crude. Boosting builds many small trees **in sequence**,
-where each new tree focuses only on the error the previous trees left behind. A
-**learning rate** scales each tree's correction down, so the model improves in many small,
-careful steps instead of a few big, overconfident ones.
+by asking a series of yes/no questions, such as *Is it heavier than 3 kg?* or *Is annual
+volume below 1,000?*, and returning the average price of training parts that gave the
+same answers. One tree is crude. Boosting builds many small trees **in sequence**, where
+each new tree focuses only on the error the previous trees left behind.
+
+Each round works the same way:
+
+1. **Measure the error.** For every training part, subtract the current prediction from
+   the actual price. A positive error means the part is under-priced so far; a negative
+   error means it is over-priced.
+2. **Fit a tree to the errors.** The new tree splits parts into groups with similar
+   errors, and each group's **average error** becomes that group's correction.
+3. **Update the predictions.** Every part's prediction moves by its group's correction,
+   multiplied by the **learning rate** (for example 0.3). Scaling corrections down means
+   the model improves in many small, careful steps instead of a few big, overconfident
+   ones.
 
 The interactive below runs real gradient boosting on simulated parts using a single
-feature, weight, so you can watch the prediction take shape:
+feature, weight. Move the slider to add trees, and click a part to see the exact
+arithmetic for that part:
 
 <BoostingExplainer />
 
@@ -84,18 +94,34 @@ it has never seen.
 ### Predicting a range with quantile regression
 
 A standard regression model predicts the *average* price. To predict a range, I trained
-**three** gradient boosting models with **quantile loss**, each aimed at a different
-point of the price distribution:
+**three** gradient boosting models, each aimed at a different point of the price
+distribution:
 
 - a **lower** model at the 10th percentile,
 - a **median** model at the 50th percentile, and
 - an **upper** model at the 90th percentile.
 
-Together, the lower and upper models form an **80% prediction interval**: for a typical
-part, we expect the price to land inside the range about 80% of the time. The trick is
-in the loss function. The upper model is penalized nine times more for pricing a part
-too low than too high, so it learns to sit above most prices. Try changing the interval
-width:
+All three models learn from the **same training parts and the same features**. They are
+not trained on different subsets of the data. What differs is how each model scores its
+mistakes, a scoring rule called **quantile loss**:
+
+| Model | Penalty per dollar too low | Penalty per dollar too high | Where it settles |
+| --- | --- | --- | --- |
+| Lower (10th) | 0.1 | 0.9 | Below about 90% of similar parts |
+| Median (50th) | 0.5 | 0.5 | In the middle |
+| Upper (90th) | 0.9 | 0.1 | Above about 90% of similar parts |
+
+The upper model pays nine times more for guessing too low than for guessing too high,
+so its cheapest strategy is to sit near the top of the prices it sees for similar parts.
+The lower model is the mirror image. In gradient boosting, the only change is the error
+each new tree is fit to: instead of the plain dollar error, trees correct this weighted
+penalty. Try it on a single group of similar parts:
+
+<QuantileLoss />
+
+Applied across all parts, the lower and upper models form an **80% prediction
+interval**: for a typical part, we expect the actual price to land inside the range
+about 80% of the time. Try changing the interval width:
 
 <QuantileBands />
 
@@ -142,12 +168,13 @@ feature set matched other pricing models.
 
 Importance tells us *which* features matter, but not *how*. For that, **partial
 dependence plots** isolate one feature at a time and show how the predicted price
-changes across its values:
+changes across its values. The points below are **simulated** to resemble the general
+patterns from the original analysis, not actual part data:
 
 <FeatureEffects />
 
-Supplier and ordering factory showed effects of similar, modest size: most sit close to
-zero, with a few slightly above their peers. Some of that may reflect sourcing patterns
+Supplier, ordering factory and ship-from country showed modest effects: most sit close
+to zero, with a few slightly above their peers. Some of that may reflect sourcing patterns
 rather than pricing, since difficult parts tend to go to the same capable suppliers
 again and again.
 
@@ -160,8 +187,8 @@ them side by side:
 
 <ErrorMetrics />
 
-There was no existing pricing method to serve as a true baseline, so I compared the
-model against a simple **$3 per kilogram** rule of thumb. On the test set, the median
+As a reference point, I compared the model against **$3 per kilogram**, an established
+reference price used within the organization for these parts. On the test set, the median
 model reduced dollar error by about 31% and percentage error by about 36%. Training error
 was lower (MAPE 27.9%, MAE $3.70), a gap that's expected with this much
 part-to-part variation, and the reason the test set matters.
@@ -174,8 +201,8 @@ down by segment shows where the model is strongest:
 
 ## Savings identified
 
-The real test of a pricing model is whether it finds money. Once every part had a price
-range, I flagged parts priced **above the median** and **above the upper estimate**,
+The real test of a pricing model is whether it finds savings. Once price ranges were
+calculated, I flagged parts priced **above the median** and **above the upper estimate**,
 then reviewed them with a cost engineer, who examined technical drawings and judged
 whether renegotiation was realistic. For each flagged part, savings were sized as a range:
 conservatively down to the upper estimate, and optimistically down to the median.
@@ -189,10 +216,9 @@ conservatively down to the upper estimate, and optimistically down to the median
 
 ## Limitations and next steps
 
-The model's biggest limitation is the data it can see. Weight is a strong but blunt proxy
-for cost: two 5 kg parts can differ wildly in material, complexity, paint and surface
-coating. Very cheap parts (where small dollar misses become large percentage errors) and
-very heavy or expensive parts (where data is sparse) remain the hardest to price.
+The model's biggest opportunity for improvement is better training data. Weight is a
+strong but blunt proxy for cost: two 5 kg parts can differ widely in material,
+complexity, paint and surface coating.
 
 Separate experiments showed that adding **part dimensions and material type** reduces
 error further. That data existed for only about 10% of parts at the time, so it wasn't
@@ -204,8 +230,8 @@ miss, the model should keep improving.
 <Callout title="Takeaway">
   Using only data John Deere already had, chiefly part weight, annual volume and part
   age, three quantile gradient boosting models produce a **low–median–high price range**
-  for every simple metal fabrication part. The median model cut pricing error by about
-  a third compared with a $3/kg rule of thumb, and its estimates match how experts
+  for simple metal fabrication parts from suppliers in Europe. The median model cut
+  pricing error by about a third compared with the $3/kg reference, and its estimates match how experts
   think about cost: heavier parts cost more, and low-volume parts carry a premium. The
   model's real value is triage. It turns thousands of parts into a short, ranked list
   of likely overpriced ones, which surfaced **$162k–$500k** in potential savings in

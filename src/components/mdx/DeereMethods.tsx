@@ -152,7 +152,6 @@ function fitStump(xs: number[], rs: number[]): Stump {
 }
 
 const MAX_TREES = 60;
-const move = (v: number) => `${v >= 0 ? "up" : "down"} ${usd(Math.abs(v))}`;
 const rates = ["0.1", "0.3", "1.0"] as const;
 type Rate = (typeof rates)[number];
 
@@ -175,10 +174,28 @@ function boost(lr: number) {
   return { base, stumps, predict, trainMae, testMae };
 }
 
-/** Step-by-step gradient boosting on one feature (weight), with a held-out test set. */
+const defaultPart = simParts.findIndex((p) => !p.test && p.w > 5 && p.w < 9 && p.price > 38);
+
+function Step({ n, children }: { n: number; children: React.ReactNode }) {
+  return (
+    <li className="flex gap-2.5">
+      <span className="mt-0.5 flex size-4.5 shrink-0 items-center justify-center rounded-full border border-border font-mono text-[10px] text-muted">
+        {n}
+      </span>
+      <span>{children}</span>
+    </li>
+  );
+}
+
+const B = ({ children }: { children: React.ReactNode }) => (
+  <span className="font-semibold tabular-nums text-foreground">{children}</span>
+);
+
+/** Step-by-step gradient boosting on one feature (weight), with a worked update for one selected part. */
 export function BoostingExplainer() {
   const [rate, setRate] = useState<Rate>("0.3");
-  const [trees, setTrees] = useState(3);
+  const [trees, setTrees] = useState(1);
+  const [sel, setSel] = useState(defaultPart);
   const lr = Number(rate);
   const model = useMemo(() => boost(lr), [lr]);
 
@@ -187,12 +204,22 @@ export function BoostingExplainer() {
   const plot = { l: 44, r: W - 12, t: 12, b: H - 40 };
   const x = linear([0, 12], [plot.l, plot.r]);
   const y = linear([0, 60], [plot.b, plot.t]);
+  const clampY = (v: number) => y(Math.max(0, Math.min(60, v)));
   const grid = Array.from({ length: 241 }, (_, i) => i * 0.05);
-  const line = pathFrom(grid.map((w) => [x(w), y(Math.max(0, Math.min(60, model.predict(w, trees))))]));
+  const lineAt = (m: number) => pathFrom(grid.map((w) => [x(w), clampY(model.predict(w, m))]));
 
-  const last = trees > 0 ? model.stumps[trees - 1] : null;
-  const trainMae = model.trainMae[trees];
-  const testMae = model.testMae[trees];
+  // The error each tree is fit to is measured against the prediction *before* that tree.
+  const before = Math.max(trees - 1, 0);
+  const tree = trees > 0 ? model.stumps[trees - 1] : null;
+  const part = simParts[sel];
+  const prev = model.predict(part.w, before);
+  const err = part.price - prev;
+  const lighter = tree ? part.w < tree.split : false;
+  const groupErr = tree ? (lighter ? tree.left : tree.right) : 0;
+  const groupSize = tree
+    ? simParts.filter((p) => !p.test && (p.w < tree.split) === lighter).length
+    : 0;
+  const next = model.predict(part.w, trees);
 
   // Mini error curve
   const mW = 220;
@@ -207,9 +234,9 @@ export function BoostingExplainer() {
     <Figure
       caption={
         <>
-          Simulated parts, one feature. Each new tree is a single yes/no question about weight, fit to whatever error
-          is left over. Hollow dots are held-out test parts the model never trains on. Try a learning rate of 1.0 with
-          60 trees to see training error keep falling while test error stops improving.
+          Simulated parts, one feature. Click any filled dot to follow that part through the update. Hollow dots are
+          held-out test parts the model never trains on. Try a learning rate of 1.0 with 60 trees to see training error
+          keep falling while test error stops improving.
         </>
       }
     >
@@ -248,87 +275,121 @@ export function BoostingExplainer() {
             yLabel="Unit price"
             plot={plot}
           />
-          {simParts.map((p, i) => {
-            const pred = model.predict(p.w, trees);
-            return (
+          {tree && (
+            <>
+              <rect
+                x={lighter ? plot.l : x(tree.split)}
+                y={plot.t}
+                width={lighter ? x(tree.split) - plot.l : plot.r - x(tree.split)}
+                height={plot.b - plot.t}
+                fill={BLUE}
+                fillOpacity="0.05"
+              />
+              <line x1={x(tree.split)} x2={x(tree.split)} y1={plot.t} y2={plot.b} stroke={ORANGE} strokeDasharray="3 4" />
+              <text x={x(tree.split)} y={plot.t + 10} dx="5" className="fill-muted text-[10px]">
+                split at {tree.split.toFixed(1)} kg
+              </text>
+            </>
+          )}
+          {/* Error each training part hands to the next tree: actual price minus the prediction so far */}
+          {simParts.map((p, i) =>
+            p.test ? null : (
               <line
                 key={`r${i}`}
                 x1={x(p.w)}
                 x2={x(p.w)}
                 y1={y(p.price)}
-                y2={y(Math.max(0, Math.min(60, pred)))}
-                stroke={p.test ? ORANGE : "var(--muted)"}
-                strokeOpacity={p.test ? 0.5 : 0.35}
+                y2={clampY(model.predict(p.w, before))}
+                stroke={i === sel ? "var(--foreground)" : "var(--muted)"}
+                strokeOpacity={i === sel ? 0.9 : 0.4}
+                strokeWidth={i === sel ? 1.75 : 1}
               />
-            );
-          })}
-          <path d={line} fill="none" stroke={BLUE} strokeWidth="2.5" strokeLinejoin="round" />
-          {simParts.map((p, i) => (
-            <circle
-              key={i}
-              cx={x(p.w)}
-              cy={y(p.price)}
-              r={4}
-              fill={p.test ? "var(--surface)" : VIOLET}
-              stroke={p.test ? ORANGE : "var(--surface)"}
-              strokeWidth={p.test ? 1.75 : 1.5}
-            />
-          ))}
-          {last && (
-            <line
-              x1={x(last.split)}
-              x2={x(last.split)}
-              y1={plot.t}
-              y2={plot.b}
-              stroke={ORANGE}
-              strokeDasharray="3 4"
-              strokeOpacity="0.8"
-            />
+            ),
           )}
+          {trees > 0 && (
+            <path d={lineAt(before)} fill="none" stroke={BLUE} strokeOpacity="0.55" strokeWidth="1.5" strokeDasharray="5 4" />
+          )}
+          <path d={lineAt(trees)} fill="none" stroke={BLUE} strokeWidth="2.5" strokeLinejoin="round" />
+          {simParts.map((p, i) => (
+            <g key={i} onClick={() => !p.test && setSel(i)} className={p.test ? undefined : "cursor-pointer"}>
+              {!p.test && <circle cx={x(p.w)} cy={y(p.price)} r={9} fill="transparent" />}
+              <circle
+                cx={x(p.w)}
+                cy={y(p.price)}
+                r={i === sel ? 5.5 : 4}
+                fill={p.test ? "var(--surface)" : VIOLET}
+                stroke={p.test ? ORANGE : i === sel ? "var(--foreground)" : "var(--surface)"}
+                strokeWidth={p.test ? 1.75 : 1.5}
+              />
+            </g>
+          ))}
         </svg>
 
-        <div className="grid items-start gap-3 text-sm sm:grid-cols-3" aria-live="polite">
-          <div className="rounded-lg border border-border bg-background/60 p-3 text-xs leading-relaxed text-muted">
-            {last ? (
-              <>
-                <span className="font-medium text-foreground">Tree {trees}</span> asks: is the part lighter than{" "}
-                <span className="font-semibold text-foreground">{last.split.toFixed(1)} kg</span>? Lighter parts move{" "}
-                <span className="font-semibold text-foreground">{move(lr * last.left)}</span>, heavier parts move{" "}
-                <span className="font-semibold text-foreground">{move(lr * last.right)}</span> (the leftover error × {rate}).
-              </>
-            ) : (
-              <>
-                With no trees, the model guesses the average training price,{" "}
-                <span className="font-semibold text-foreground">{usd(model.base)}</span>, for every part.
-              </>
-            )}
-          </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-1">
-            <div className="rounded-lg border border-border bg-background/60 p-2.5">
-              <p className="text-[11px] text-muted">Train error (MAE)</p>
-              <p className="text-lg font-semibold tabular-nums text-foreground">{usd(trainMae)}</p>
-            </div>
-            <div className="rounded-lg border border-border bg-background/60 p-2.5">
-              <p className="text-[11px] text-muted">Test error (MAE)</p>
-              <p className="text-lg font-semibold tabular-nums text-foreground">{usd(testMae)}</p>
-            </div>
-          </div>
-          <svg viewBox={`0 0 ${mW} ${mH}`} className="w-full" role="img" aria-label="Training and test error by number of trees">
-            <line x1={mp.l} x2={mp.r} y1={mp.b} y2={mp.b} stroke="var(--muted)" strokeOpacity="0.5" />
-            <text x={mp.l - 4} y={my(0)} dy="0.32em" textAnchor="end" className="fill-muted text-[9px]">$0</text>
-            <text x={mp.l - 4} y={my(maxErr)} dy="0.32em" textAnchor="end" className="fill-muted text-[9px]">
-              ${Math.round(maxErr)}
-            </text>
-            <text x={mx(0)} y={mp.b + 12} textAnchor="middle" className="fill-muted text-[9px]">0</text>
-            <text x={mx(MAX_TREES)} y={mp.b + 12} textAnchor="end" className="fill-muted text-[9px]">{MAX_TREES} trees</text>
-            <path d={curve(model.trainMae)} fill="none" stroke={VIOLET} strokeWidth="2" />
-            <path d={curve(model.testMae)} fill="none" stroke={ORANGE} strokeWidth="2" />
-            <line x1={mx(trees)} x2={mx(trees)} y1={mp.t} y2={mp.b} stroke="var(--foreground)" strokeOpacity="0.5" />
-          </svg>
-          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted order-first sm:col-span-full">
+        <div className="grid items-start gap-3 text-sm sm:grid-cols-[1fr_13rem]" aria-live="polite">
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted sm:col-span-full">
             <LegendItem color={VIOLET} label="Training parts" />
             <LegendItem color={ORANGE} label="Test parts" />
-            <LegendItem color={BLUE} label="Prediction" kind="line" />
+            <LegendItem color="var(--muted)" label="Error (actual − prediction so far)" kind="line" />
+            {trees > 0 && <LegendItem color={BLUE} label="Before this tree" kind="dash" />}
+            <LegendItem color={BLUE} label={trees > 0 ? "After this tree" : "Prediction"} kind="line" />
+          </div>
+
+          <div className="rounded-lg border border-border bg-background/60 p-3 text-xs leading-relaxed text-muted">
+            <p className="mb-2 font-medium text-foreground">
+              {tree ? `How tree ${trees} updates the selected part` : "Starting point"}
+            </p>
+            {tree ? (
+              <ol className="list-none! space-y-1.5 pl-0!">
+                <Step n={1}>
+                  Prediction so far ({before} {before === 1 ? "tree" : "trees"}): <B>{usd(prev)}</B>
+                </Step>
+                <Step n={2}>
+                  Error = actual <B>{usd(part.price)}</B> − <B>{usd(prev)}</B> = <B>{usd(err)}</B>{" "}
+                  ({err >= 0 ? "under-priced" : "over-priced"})
+                </Step>
+                <Step n={3}>
+                  Tree {trees} splits parts at <B>{tree.split.toFixed(1)} kg</B>. This part is in the{" "}
+                  {lighter ? "lighter" : "heavier"} group of {groupSize} training parts, whose average error is{" "}
+                  <B>{usd(groupErr)}</B>. That average is the tree&apos;s correction for the whole group.
+                  {Math.sign(err) !== Math.sign(groupErr) && (
+                    <> This part&apos;s own error points the other way, but it still gets the group&apos;s correction; later trees can split it off.</>
+                  )}
+                </Step>
+                <Step n={4}>
+                  New prediction = <B>{usd(prev)}</B> + {rate} × <B>{usd(groupErr)}</B> = <B>{usd(next)}</B>
+                </Step>
+              </ol>
+            ) : (
+              <p>
+                With no trees, the model predicts the average training price, <B>{usd(model.base)}</B>, for every part.
+                The grey lines show each part&apos;s error from that guess. The first tree will be fit to those errors.
+              </p>
+            )}
+          </div>
+
+          <div className="grid gap-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-lg border border-border bg-background/60 p-2.5">
+                <p className="text-[11px] text-muted">Train MAE</p>
+                <p className="text-lg font-semibold tabular-nums text-foreground">{usd(model.trainMae[trees])}</p>
+              </div>
+              <div className="rounded-lg border border-border bg-background/60 p-2.5">
+                <p className="text-[11px] text-muted">Test MAE</p>
+                <p className="text-lg font-semibold tabular-nums text-foreground">{usd(model.testMae[trees])}</p>
+              </div>
+            </div>
+            <svg viewBox={`0 0 ${mW} ${mH}`} className="w-full" role="img" aria-label="Training and test error by number of trees">
+              <line x1={mp.l} x2={mp.r} y1={mp.b} y2={mp.b} stroke="var(--muted)" strokeOpacity="0.5" />
+              <text x={mp.l - 4} y={my(0)} dy="0.32em" textAnchor="end" className="fill-muted text-[9px]">$0</text>
+              <text x={mp.l - 4} y={my(maxErr)} dy="0.32em" textAnchor="end" className="fill-muted text-[9px]">
+                ${Math.round(maxErr)}
+              </text>
+              <text x={mx(0)} y={mp.b + 12} textAnchor="middle" className="fill-muted text-[9px]">0</text>
+              <text x={mx(MAX_TREES)} y={mp.b + 12} textAnchor="end" className="fill-muted text-[9px]">{MAX_TREES} trees</text>
+              <path d={curve(model.trainMae)} fill="none" stroke={VIOLET} strokeWidth="2" />
+              <path d={curve(model.testMae)} fill="none" stroke={ORANGE} strokeWidth="2" />
+              <line x1={mx(trees)} x2={mx(trees)} y1={mp.t} y2={mp.b} stroke="var(--foreground)" strokeOpacity="0.5" />
+            </svg>
           </div>
         </div>
       </div>
@@ -339,6 +400,138 @@ export function BoostingExplainer() {
 /* ------------------------------------------------------------------ */
 /* Quantile regression: price ranges instead of a single price          */
 /* ------------------------------------------------------------------ */
+
+const round3 = (v: number) => Math.round(v * 1000) / 1000;
+/** 0.975 -> "97.5", 0.9 -> "90" */
+const ordinal = (q: number) => String(round3(q * 100));
+
+/* Quantile (pinball) loss explainer ---------------------------------- */
+
+/** Unit prices for a group of similar simulated parts (say, 2 kg steel brackets). */
+const groupPrices = [8.4, 9.6, 10.2, 11, 11.5, 12.1, 12.6, 13, 13.8, 14.5, 15.3, 16.4, 17.9, 19.6, 22.8];
+const lossQuantiles = ["10th", "50th", "90th"] as const;
+type LossQuantile = (typeof lossQuantiles)[number];
+const qValue: Record<LossQuantile, number> = { "10th": 0.1, "50th": 0.5, "90th": 0.9 };
+
+function pinball(q: number, estimate: number) {
+  return groupPrices.reduce((a, price) => a + (price > estimate ? q * (price - estimate) : (1 - q) * (estimate - price)), 0);
+}
+
+/** Drag a candidate estimate and watch the quantile loss; its minimum lands at the chosen percentile. */
+export function QuantileLoss() {
+  const [quantile, setQuantile] = useState<LossQuantile>("90th");
+  const [estimate, setEstimate] = useState(13);
+  const q = qValue[quantile];
+  const lo = 6;
+  const hi = 26;
+  const xs = Array.from({ length: 201 }, (_, i) => lo + i * 0.1);
+  const losses = xs.map((v) => pinball(q, v));
+  const best = xs[losses.indexOf(Math.min(...losses))];
+  const loss = pinball(q, estimate);
+  const above = groupPrices.filter((price) => price > estimate).length;
+  const underDollars = groupPrices.reduce((a, price) => a + Math.max(price - estimate, 0), 0);
+  const overDollars = groupPrices.reduce((a, price) => a + Math.max(estimate - price, 0), 0);
+
+  const W = 520;
+  const plot = { l: 44, r: W - 12 };
+  const x = linear([lo, hi], [plot.l, plot.r]);
+  // Strip of prices
+  const stripY = 30;
+  // Loss curve
+  const cTop = 70;
+  const cBot = 190;
+  const maxLoss = Math.max(...losses);
+  const y = linear([0, maxLoss], [cBot, cTop]);
+
+  return (
+    <Figure caption="Fifteen simulated parts of the same kind. The quantile model looks for the single price that makes the weighted total penalty as small as possible. With weights of 0.9 and 0.1, that price sits above 90% of the parts.">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <ChartTitle title="How a quantile model picks its price" subtitle="Weighted penalty for one group of similar parts" />
+        <div className="flex items-center gap-2 text-xs text-muted">
+          Target
+          <Segmented options={lossQuantiles} value={quantile} onChange={setQuantile} label="Target percentile" render={(v) => `${v} pct.`} />
+        </div>
+      </div>
+
+      <label className="mt-4 flex items-center gap-3 text-sm">
+        <span className="w-28 shrink-0 text-muted">
+          Estimate: <B>{usd(estimate)}</B>
+        </span>
+        <input
+          type="range"
+          min={lo}
+          max={hi}
+          step={0.1}
+          value={estimate}
+          onChange={(e) => setEstimate(Number(e.target.value))}
+          className="w-full accent-[#3987e5]"
+          aria-label="Candidate price estimate"
+        />
+      </label>
+
+      <svg viewBox={`0 0 ${W} 222`} className="mt-3 w-full" role="img" aria-label={`Quantile loss curve for the ${quantile} percentile`}>
+        <line x1={plot.l} x2={plot.r} y1={stripY} y2={stripY} stroke="var(--border)" />
+        {groupPrices.map((price, i) => (
+          <circle
+            key={i}
+            cx={x(price)}
+            cy={stripY}
+            r={5}
+            fill={price > estimate ? ORANGE : VIOLET}
+            stroke="var(--surface)"
+            strokeWidth="1.5"
+          />
+        ))}
+        <text x={plot.l - 6} y={stripY} dy="0.32em" textAnchor="end" className="fill-muted text-[10px]">
+          parts
+        </text>
+
+        <line x1={plot.l} x2={plot.r} y1={cBot} y2={cBot} stroke="var(--muted)" strokeOpacity="0.5" />
+        <path d={pathFrom(xs.map((v, i) => [x(v), y(losses[i])]))} fill="none" stroke={BLUE} strokeWidth="2.5" />
+        <line x1={x(best)} x2={x(best)} y1={cTop} y2={cBot} stroke={BLUE} strokeOpacity="0.5" strokeDasharray="3 4" />
+        <text x={x(best)} y={cTop - 4} textAnchor="middle" className="fill-muted text-[10px]">
+          lowest penalty {usd(best)}
+        </text>
+        <text x={plot.l - 6} y={(cTop + cBot) / 2} dy="0.32em" textAnchor="end" className="fill-muted text-[10px]">
+          penalty
+        </text>
+
+        <line x1={x(estimate)} x2={x(estimate)} y1={stripY - 14} y2={cBot} stroke="var(--foreground)" strokeOpacity="0.6" />
+        <circle cx={x(estimate)} cy={y(loss)} r={5} fill={BLUE} stroke="var(--surface)" strokeWidth="2" />
+        {[8, 12, 16, 20, 24].map((t) => (
+          <text key={t} x={x(t)} y={cBot + 15} textAnchor="middle" className="fill-muted text-[10px] tabular-nums">
+            ${t}
+          </text>
+        ))}
+        <text x={(plot.l + plot.r) / 2} y={cBot + 30} textAnchor="middle" className="fill-muted text-[11px]">
+          Unit price
+        </text>
+      </svg>
+
+      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted">
+        <LegendItem color={ORANGE} label="Priced above the estimate (estimate too low)" />
+        <LegendItem color={VIOLET} label="Priced at or below it (estimate too high)" />
+      </div>
+
+      <div className="mt-3 rounded-lg border border-border bg-background/60 p-3 text-xs leading-relaxed text-muted" aria-live="polite">
+        <p>
+          <B>{above}</B> of {groupPrices.length} parts cost more than {usd(estimate)}, by <B>{usd(underDollars)}</B> in
+          total. The rest cost less, by <B>{usd(overDollars)}</B> in total.
+        </p>
+        <p className="mt-1.5 font-mono text-[11px] text-foreground/85">
+          penalty = {q} × {usd(underDollars)} + {round3(1 - q)} × {usd(overDollars)} = {usd(loss)}
+        </p>
+        <p className="mt-1.5">
+          {Math.abs(estimate - best) < 0.15
+            ? `This is the lowest possible penalty. About ${Math.round(q * 100)}% of parts are priced at or below it, which is exactly what the ${quantile} percentile means.`
+            : `Slide toward ${usd(best)} to lower the penalty.`}
+        </p>
+      </div>
+    </Figure>
+  );
+}
+
+/* Prediction intervals ------------------------------------------------ */
 
 const intervals = ["50%", "80%", "90%", "95%"] as const;
 type Interval = (typeof intervals)[number];
@@ -381,7 +574,6 @@ export function QuantileBands() {
     .reverse()
     .map((w) => `L${x(w).toFixed(1)},${clampY(lo(w)).toFixed(1)}`)
     .join("")}Z`;
-  const ratio = qHi / (1 - qHi);
 
   return (
     <Figure caption="Simulated parts. Instead of one best-guess price, three models trace the lower edge, middle and upper edge of the prices seen for similar parts. Widening the interval trades precision for coverage.">
@@ -443,11 +635,10 @@ export function QuantileBands() {
             <p className="text-xs text-muted">≈ {Math.round((inside / bandParts.length) * 100)}% coverage</p>
           </div>
           <div className="rounded-lg border border-border bg-background/60 p-3 text-xs leading-relaxed text-muted">
-            The upper line is the <span className="text-foreground">{Math.round(qHi * 100)}th percentile</span>. It is
-            trained so that pricing a part <span className="text-foreground">too low</span> costs{" "}
-            <span className="font-semibold text-foreground">{ratio.toFixed(ratio < 10 ? 1 : 0)}×</span> more than
-            pricing it too high, so it settles above about {Math.round(qHi * 100)}% of parts. The lower line mirrors this
-            at the {Math.round(qLo * 100)}th percentile.
+            A {interval} range needs two lines: a <B>{ordinal(qLo)}th</B> percentile model for the low end and a{" "}
+            <B>{ordinal(qHi)}th</B> percentile model for the high end. Both see the same parts. The upper model weights
+            each dollar of under-pricing by <B>{qHi}</B> and each dollar of over-pricing by <B>{round3(1 - qHi)}</B>,
+            so it settles above about {ordinal(qHi)}% of parts. The lower model flips those weights.
           </div>
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted order-first sm:col-span-full">
             <LegendItem color={BLUE} label="Median" kind="line" />

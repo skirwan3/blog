@@ -73,4 +73,7 @@ body {
 .post-body p:has(> img:only-child) { margin-top: 2rem; }
 .post-body p.caption { margin-top: 0.75rem !important; text-align: center; font-size: 0.875rem; font-style: italic; color: var(--muted); }
 .post-body sup { color: var(--muted); }
+.post-body > table { width: 100%; border-collapse: collapse; font-size: 0.95rem; line-height: 1.5; }
+.post-body > table th { text-align: left; font-weight: 500; font-size: 0.8rem; color: var(--muted); padding: 0 0.75rem 0.5rem 0; vertical-align: bottom; }
+.post-body > table td { border-top: 1px solid var(--border); padding: 0.6rem 0.75rem 0.6rem 0; vertical-align: top; }
 .post-body hr { border: none; border-top: 1px solid var(--border); margin: 2.5rem 0; }
