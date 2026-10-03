@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { motion } from "motion/react";
 
-const headline = ["Making", "technology", "easy", "to", "understand."];
+const headline = ["Stuart", "Kirwan"];
 
 export function Hero() {
   return (
@@ -22,7 +22,7 @@ export function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          {"> writing, projects & experiments"}
+          {"> data science portfolio"}
         </motion.p>
         <h1 className="max-w-3xl text-5xl font-semibold leading-[1.05] tracking-tight sm:text-7xl">
           {headline.map((word, i) => (
@@ -45,8 +45,8 @@ export function Hero() {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.9, duration: 0.7 }}
         >
-          Deep dives, interactive explainers and portfolio work — built to be
-          read, played with and shared.
+          Data science projects, interactive explainers and writing on machine
+          learning, AI and healthcare analytics.
         </motion.p>
         <motion.div
           className="mt-10 flex gap-3"

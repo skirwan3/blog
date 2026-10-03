@@ -60,68 +60,23 @@ percentile was treated as an outlier.
 
 ## How the model works
 
-### Gradient boosting, in plain terms
-
-The model is a **gradient boosted tree** ensemble. A single decision tree prices a part
-by asking a series of yes/no questions, such as *Is it heavier than 3 kg?* or *Is annual
-volume below 1,000?*, and returning the average price of training parts that gave the
-same answers. One tree is crude. Boosting builds many small trees **in sequence**, where
-each new tree focuses only on the error the previous trees left behind.
-
-Each round works the same way:
-
-1. **Measure the error.** For every training part, subtract the current prediction from
-   the actual price. A positive error means the part is under-priced so far; a negative
-   error means it is over-priced.
-2. **Fit a tree to the errors.** The new tree splits parts into groups with similar
-   errors, and each group's **average error** becomes that group's correction.
-3. **Update the predictions.** Every part's prediction moves by its group's correction,
-   multiplied by the **learning rate** (for example 0.3). Scaling corrections down means
-   the model improves in many small, careful steps instead of a few big, overconfident
-   ones.
-
-The interactive below runs real gradient boosting on simulated parts using a single
-feature, weight. Move the slider to add trees, and click a part to see the exact
-arithmetic for that part:
-
-<BoostingExplainer />
-
-That gap between training and test error is why the data was split before training: **80%**
-of parts were used to train and tune the model (with 5-fold cross-validation choosing the
-settings), and **20%** were held back as a test set to measure how well it prices parts
-it has never seen.
-
-### Predicting a range with quantile regression
-
-A standard regression model predicts the *average* price. To predict a range, I trained
-**three** gradient boosting models, each aimed at a different point of the price
-distribution:
+I trained three **gradient boosting** models, each estimating a different point in a
+part's likely price range:
 
 - a **lower** model at the 10th percentile,
 - a **median** model at the 50th percentile, and
 - an **upper** model at the 90th percentile.
 
-All three models learn from the **same training parts and the same features**. They are
-not trained on different subsets of the data. What differs is how each model scores its
-mistakes, a scoring rule called **quantile loss**:
+All three learn from the same parts and features. Using a technique called **quantile
+regression**, each one targets a different percentile instead of the average price.
+Together, the lower and upper models form an **80% prediction interval**: for a typical
+part, we expect the actual price to land inside the range about 80% of the time.
 
-| Model | Penalty per dollar too low | Penalty per dollar too high | Where it settles |
-| --- | --- | --- | --- |
-| Lower (10th) | 0.1 | 0.9 | Below about 90% of similar parts |
-| Median (50th) | 0.5 | 0.5 | In the middle |
-| Upper (90th) | 0.9 | 0.1 | Above about 90% of similar parts |
+To measure how well the models price parts they haven't seen, **80%** of parts were used
+for training and tuning (with 5-fold cross-validation), and **20%** were held back as a
+test set.
 
-The upper model pays nine times more for guessing too low than for guessing too high,
-so its cheapest strategy is to sit near the top of the prices it sees for similar parts.
-The lower model is the mirror image. In gradient boosting, the only change is the error
-each new tree is fit to: instead of the plain dollar error, trees correct this weighted
-penalty. Try it on a single group of similar parts:
-
-<QuantileLoss />
-
-Applied across all parts, the lower and upper models form an **80% prediction
-interval**: for a typical part, we expect the actual price to land inside the range
-about 80% of the time. Try changing the interval width:
+Here is what the output looks like on simulated parts. Try changing the interval width:
 
 <QuantileBands />
 

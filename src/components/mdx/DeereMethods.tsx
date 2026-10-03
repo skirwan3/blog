@@ -635,10 +635,9 @@ export function QuantileBands() {
             <p className="text-xs text-muted">≈ {Math.round((inside / bandParts.length) * 100)}% coverage</p>
           </div>
           <div className="rounded-lg border border-border bg-background/60 p-3 text-xs leading-relaxed text-muted">
-            A {interval} range needs two lines: a <B>{ordinal(qLo)}th</B> percentile model for the low end and a{" "}
-            <B>{ordinal(qHi)}th</B> percentile model for the high end. Both see the same parts. The upper model weights
-            each dollar of under-pricing by <B>{qHi}</B> and each dollar of over-pricing by <B>{round3(1 - qHi)}</B>,
-            so it settles above about {ordinal(qHi)}% of parts. The lower model flips those weights.
+            A {interval} range uses a <B>{ordinal(qLo)}th</B> percentile model for the low end and a{" "}
+            <B>{ordinal(qHi)}th</B> percentile model for the high end. Wider ranges contain more parts but give a less
+            precise estimate; narrower ranges are more precise but flag more parts as unusual.
           </div>
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted order-first sm:col-span-full">
             <LegendItem color={BLUE} label="Median" kind="line" />
