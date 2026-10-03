@@ -37,7 +37,7 @@ export default async function Home() {
       <Hero />
       <section className="mx-auto max-w-5xl px-6 pb-24">
         <Reveal className="mb-8 flex flex-wrap items-end justify-between gap-3">
-          <h2 className="text-2xl font-semibold tracking-tight">Latest projects &amp; articles</h2>
+          <h2 className="text-2xl font-semibold tracking-tight">Recent Work &amp; Writing</h2>
           <div className="flex gap-5 text-sm text-muted">
             <Link href="/projects" className="transition-colors hover:text-foreground">
               All projects →
