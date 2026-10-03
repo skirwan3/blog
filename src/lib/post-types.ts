@@ -1,8 +1,12 @@
 export type PostMeta = {
   title: string;
   description: string;
+  /** One short line for compact home-page tiles; falls back to description. */
+  summary?: string;
   date: string;
   tags?: string[];
+  /** Optional card image, e.g. "/posts/my-post/cover.jpg". */
+  cover?: string;
 };
 
 export type Post = PostMeta & { slug: string };
