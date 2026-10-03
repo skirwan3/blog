@@ -30,7 +30,7 @@ export default async function Home() {
               <ContentCard
                 href={`/projects/${p.slug}`}
                 title={p.title}
-                description={p.description}
+                description={p.summary ?? p.description}
                 cover={p.cover}
                 compact
               />
@@ -41,15 +41,15 @@ export default async function Home() {
 
       <section className="mx-auto max-w-5xl px-6 pb-24">
         <SectionHeader title="Recent Writing" href="/blog" linkLabel="All writing →" />
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {posts.slice(0, 4).map((p, i) => (
             <Reveal key={p.slug} delay={i * 0.06}>
               <ContentCard
                 href={`/blog/${p.slug}`}
                 title={p.title}
-                description={p.description}
-                tags={p.tags}
+                description={p.summary ?? p.description}
                 cover={p.cover}
+                compact
               />
             </Reveal>
           ))}
