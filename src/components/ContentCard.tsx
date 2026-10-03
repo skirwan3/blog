@@ -11,10 +11,12 @@ export type ContentCardProps = {
   cover?: string;
   /** Small badge over the image, e.g. "Project" or "Article". */
   label?: string;
+  /** Smaller text and padding, no tags: for dense rows of four. */
+  compact?: boolean;
 };
 
 /** Image-topped card used for projects and articles. Items without a cover get a gradient placeholder. */
-export function ContentCard({ href, title, description, tags = [], cover, label }: ContentCardProps) {
+export function ContentCard({ href, title, description, tags = [], cover, label, compact }: ContentCardProps) {
   return (
     <motion.div
       className="h-full"
@@ -50,10 +52,16 @@ export function ContentCard({ href, title, description, tags = [], cover, label 
             </span>
           )}
         </div>
-        <div className="flex flex-1 flex-col p-6">
-          <h3 className="text-xl font-semibold tracking-tight transition-colors group-hover:text-accent-2">{title}</h3>
-          <p className="mt-2 flex-1 text-muted">{description}</p>
-          {tags.length > 0 && (
+        <div className={`flex flex-1 flex-col ${compact ? "p-4" : "p-6"}`}>
+          <h3
+            className={`font-semibold tracking-tight transition-colors group-hover:text-accent-2 ${
+              compact ? "text-base leading-snug" : "text-xl"
+            }`}
+          >
+            {title}
+          </h3>
+          <p className={`mt-2 text-muted ${compact ? "line-clamp-4 text-sm" : "flex-1"}`}>{description}</p>
+          {!compact && tags.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-2 font-mono text-xs text-muted">
               {tags.map((tag) => (
                 <span key={tag} className="rounded-full border border-border px-2 py-0.5">
