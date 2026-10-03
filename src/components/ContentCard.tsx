@@ -60,7 +60,7 @@ export function ContentCard({ href, title, description, tags = [], cover, label,
           >
             {title}
           </h3>
-          <p className={`mt-2 text-muted ${compact ? "line-clamp-3 text-sm leading-relaxed" : "flex-1"}`}>{description}</p>
+          <p className={`mt-2 text-muted ${compact ? "line-clamp-4 text-sm leading-relaxed" : "flex-1"}`}>{description}</p>
           {!compact && tags.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-2 font-mono text-xs text-muted">
               {tags.map((tag) => (
