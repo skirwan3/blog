@@ -3,6 +3,8 @@ export type PostMeta = {
   description: string;
   date: string;
   tags?: string[];
+  /** Optional card image, e.g. "/posts/my-post/cover.jpg". */
+  cover?: string;
 };
 
 export type Post = PostMeta & { slug: string };
